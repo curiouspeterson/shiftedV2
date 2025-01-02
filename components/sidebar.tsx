@@ -5,7 +5,8 @@ import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 
 const navItems = [
-  { href: "/dashboard", icon: Calendar, label: "Schedule" },
+  { href: "/dashboard", icon: Calendar, label: "Dashboard" },
+  { href: "/dashboard/schedule", icon: Clock, label: "Schedule" },
   { href: "/dashboard/employees", icon: Users, label: "Employees" },
   { href: "/dashboard/shifts", icon: Clock4, label: "Shifts" },
   { href: "/dashboard/availability", icon: Clock, label: "Availability" },

@@ -1,7 +1,11 @@
 "use client"
 
+import * as React from "react"
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { ScheduleCalendar } from "@/components/schedule-calendar"
 import { AddShiftForm } from "@/components/add-shift-form"
 
@@ -10,9 +14,16 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const getUserEmail = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUserEmail(user?.email || null)
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser()
+        if (error) throw error
+        setUserEmail(user?.email ?? null)
+      } catch (error) {
+        console.error('Error fetching user:', error)
+        setUserEmail(null)
+      }
     }
+    
     getUserEmail()
   }, [])
 
