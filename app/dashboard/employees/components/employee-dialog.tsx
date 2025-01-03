@@ -37,19 +37,16 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
   const [email, setEmail] = React.useState(employee?.email || "")
   const [fullName, setFullName] = React.useState(employee?.full_name || "")
   const [role, setRole] = React.useState<EmployeeRole>(employee?.role as EmployeeRole || "employee")
-  const [weeklyHourLimit, setWeeklyHourLimit] = React.useState(employee?.weekly_hour_limit?.toString() || "40")
 
   React.useEffect(() => {
     if (employee) {
       setEmail(employee.email)
       setFullName(employee.full_name)
       setRole(employee.role as EmployeeRole)
-      setWeeklyHourLimit(employee.weekly_hour_limit?.toString() || "40")
     } else {
       setEmail("")
       setFullName("")
       setRole("employee")
-      setWeeklyHourLimit("40")
     }
   }, [employee])
 
@@ -58,7 +55,7 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
     setIsLoading(true)
 
     try {
-      const response = await fetch('/api/employees/route', {
+      const response = await fetch('/api/employees', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -70,15 +67,20 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
             email,
             full_name: fullName,
             role,
-            weekly_hour_limit: parseInt(weeklyHourLimit),
           }
         })
       })
 
+      let errorMessage = 'Failed to save employee'
       if (!response.ok) {
-        const error = await response.json()
-        console.error('Server response:', error)
-        throw new Error(error.message || 'Failed to save employee')
+        try {
+          const error = await response.json()
+          console.error('Server error response:', error)
+          errorMessage = error.message || error.error || errorMessage
+        } catch (e) {
+          console.error('Failed to parse error response:', e)
+        }
+        throw new Error(errorMessage)
       }
 
       const result = await response.json()
@@ -144,18 +146,6 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
                   <SelectItem value="manager">Manager</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="weeklyHourLimit">Weekly Hour Limit</Label>
-              <Input
-                id="weeklyHourLimit"
-                type="number"
-                min="0"
-                max="168"
-                value={weeklyHourLimit}
-                onChange={(e) => setWeeklyHourLimit(e.target.value)}
-                required
-              />
             </div>
           </div>
           <DialogFooter>

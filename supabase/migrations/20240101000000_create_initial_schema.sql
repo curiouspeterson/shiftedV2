@@ -4,11 +4,31 @@ create table if not exists public.profiles (
     full_name text,
     email text unique,
     role text check (role in ('employee', 'manager')) not null default 'employee',
-    weekly_hour_limit integer not null default 40,
     is_active boolean not null default true,
     created_at timestamp with time zone not null default timezone('utc'::text, now()),
     updated_at timestamp with time zone not null default timezone('utc'::text, now())
 );
+
+-- Create raw update function
+create or replace function public.update_profile_raw(
+  p_id uuid,
+  p_full_name text,
+  p_role text,
+  p_email text
+) returns void
+language plpgsql
+security definer
+as $$
+begin
+  update public.profiles
+  set
+    full_name = p_full_name,
+    role = p_role,
+    email = p_email,
+    updated_at = now()
+  where id = p_id;
+end;
+$$;
 
 -- Create employee_availability table
 create table if not exists public.employee_availability (
@@ -84,13 +104,12 @@ language plpgsql
 security definer set search_path = public
 as $$
 begin
-    insert into public.profiles (id, full_name, email, role, weekly_hour_limit, is_active)
+    insert into public.profiles (id, full_name, email, role, is_active)
     values (
         new.id,
         coalesce(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)),
         new.email,
         coalesce(new.raw_user_meta_data->>'role', 'employee'),
-        coalesce((new.raw_user_meta_data->>'weekly_hour_limit')::integer, 40),
         true
     );
     return new;

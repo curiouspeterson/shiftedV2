@@ -12,7 +12,6 @@ export interface Employee {
   full_name: string
   email: string
   role: string
-  weekly_hour_limit: number
   is_active: boolean
   created_at: string
   updated_at: string
@@ -23,7 +22,6 @@ export interface EmployeeFormData {
   full_name: string
   email: string
   role: string
-  weekly_hour_limit: number
   availability: {
     day_of_week: number
     start_time: string
