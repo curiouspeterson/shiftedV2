@@ -2,320 +2,212 @@
 
 import { useState, useEffect } from "react"
 import { format, parseISO } from "date-fns"
-import { supabase } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { toast } from "@/components/ui/use-toast"
-import { Loader2, Plus, Trash2, Edit } from 'lucide-react'
-import { Calendar } from "@/components/ui/calendar"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { type Employee } from "@/types/employee"
+import { type ShiftAssignment } from "@/types/schedule"
 
-type Schedule = {
-  id: string
-  date: string
-  start_time: string
-  end_time: string
+interface EmployeeScheduleManagerProps {
+  employee: Employee
+  onUpdate: () => void
 }
 
-type Shift = {
-  id: string
-  name: string
-  start_time: string
-  end_time: string
-}
-
-export function EmployeeScheduleManager({ employeeId }: { employeeId: string }) {
-  const [schedules, setSchedules] = useState<Schedule[]>([])
-  const [shifts, setShifts] = useState<Shift[]>([])
-  const [loading, setLoading] = useState(true)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [newSchedule, setNewSchedule] = useState({
-    date: new Date(),
-    shiftId: ""
-  })
+export function EmployeeScheduleManager({ employee, onUpdate }: EmployeeScheduleManagerProps) {
+  const [schedules, setSchedules] = useState<ShiftAssignment[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0])
 
   useEffect(() => {
     fetchSchedules()
-    fetchShifts()
-  }, [employeeId])
+  }, [startDate])
 
-  async function fetchSchedules() {
+  const fetchSchedules = async () => {
     try {
-      setLoading(true)
+      const supabase = createClient()
       const { data, error } = await supabase
-        .from('employee_schedules')
+        .from('shift_assignments')
         .select('*')
-        .eq('user_id', employeeId)
-        .order('date', { ascending: true })
-    
-      if (error) {
-        console.error('Error fetching schedules:', error)
-        throw error
-      }
+        .eq('profile_id', employee.id)
+        .gte('date', startDate)
+        .lte('date', format(parseISO(startDate), 'yyyy-MM-dd'))
+        .order('date')
+        .order('start_time')
+
+      if (error) throw error
       setSchedules(data || [])
     } catch (error) {
       console.error('Error fetching schedules:', error)
       toast({
-        title: "Error fetching schedules",
-        description: "Please check the console for more details and try again later.",
-        variant: "destructive"
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to fetch schedules",
       })
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
   }
 
-  async function fetchShifts() {
-    try {
-      const { data, error } = await supabase
-        .from('shifts')
-        .select('*')
-        .order('name', { ascending: true })
-    
-      if (error) {
-        console.error('Error fetching shifts:', error)
-        throw error
-      }
-      setShifts(data || [])
-    } catch (error) {
-      console.error('Error fetching shifts:', error)
-      toast({
-        title: "Error fetching shifts",
-        description: "Please check the console for more details and try again later.",
-        variant: "destructive"
-      })
-    }
-  }
-
-  async function createSchedule(e: React.FormEvent) {
+  const handleAddShift = async (e: React.FormEvent) => {
     e.preventDefault()
+    const form = e.target as HTMLFormElement
+    const formData = new FormData(form)
+
     try {
-      const selectedShift = shifts.find(shift => shift.id === newSchedule.shiftId)
-      if (!selectedShift) {
-        throw new Error("Selected shift not found")
-      }
-
-      const scheduleData = { 
-        user_id: employeeId,
-        date: format(newSchedule.date, 'yyyy-MM-dd'),
-        start_time: selectedShift.start_time,
-        end_time: selectedShift.end_time
-      }
-
-      const { data, error } = await supabase
-        .from('employee_schedules')
-        .insert([scheduleData])
-        .select()
-    
-      if (error) {
-        console.error('Error adding schedule:', error)
-        throw error
-      }
-    
-      if (!data || data.length === 0) {
-        throw new Error('No data returned from insert operation')
-      }
-
-      toast({
-        title: "Schedule added",
-        description: "The new schedule has been added successfully."
-      })
-    
-      setNewSchedule({ date: new Date(), shiftId: "" })
-      setSchedules(prev => [...prev, ...(data as Schedule[])])
-    } catch (error) {
-      console.error('Error adding schedule:', error)
-      toast({
-        title: "Error adding schedule",
-        description: "Please check the console for more details and try again.",
-        variant: "destructive"
-      })
-    }
-  }
-
-  async function updateSchedule(id: string, updatedData: Partial<Schedule>) {
-    try {
-      const { data, error } = await supabase
-        .from('employee_schedules')
-        .update(updatedData)
-        .eq('id', id)
-        .select()
-      
-      if (error) {
-        console.error('Error updating schedule:', error)
-        throw error
-      }
-      
-      toast({
-        title: "Schedule updated",
-        description: "The schedule has been updated successfully."
-      })
-      
-      setEditingId(null)
-      setSchedules(prev => prev.map(item => item.id === id ? (data[0] as Schedule) : item))
-    } catch (error) {
-      console.error('Error updating schedule:', error)
-      toast({
-        title: "Error updating schedule",
-        description: "Please check the console for more details and try again.",
-        variant: "destructive"
-      })
-    }
-  }
-
-  async function deleteSchedule(id: string) {
-    try {
+      const supabase = createClient()
       const { error } = await supabase
-        .from('employee_schedules')
+        .from('shift_assignments')
+        .insert([
+          {
+            profile_id: employee.id,
+            date: formData.get('date'),
+            start_time: formData.get('start_time'),
+            end_time: formData.get('end_time'),
+          },
+        ])
+
+      if (error) throw error
+
+      toast({
+        title: "Success",
+        description: "Shift added successfully",
+      })
+      form.reset()
+      fetchSchedules()
+      onUpdate()
+    } catch (error) {
+      console.error('Error adding shift:', error)
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to add shift",
+      })
+    }
+  }
+
+  const handleDeleteShift = async (id: string) => {
+    try {
+      const supabase = createClient()
+      const { error } = await supabase
+        .from('shift_assignments')
         .delete()
         .eq('id', id)
-    
-      if (error) {
-        console.error('Error deleting schedule:', error)
-        throw error
-      }
-      
+
+      if (error) throw error
+
       toast({
-        title: "Schedule deleted",
-        description: "The schedule has been deleted successfully."
+        title: "Success",
+        description: "Shift deleted successfully",
       })
-      
-      setSchedules(prev => prev.filter(item => item.id !== id))
+      fetchSchedules()
+      onUpdate()
     } catch (error) {
-      console.error('Error deleting schedule:', error)
+      console.error('Error deleting shift:', error)
       toast({
-        title: "Error deleting schedule",
-        description: "Please check the console for more details and try again.",
-        variant: "destructive"
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to delete shift",
       })
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    )
+  const handleUpdateShift = async (id: string, updates: Partial<ShiftAssignment>) => {
+    try {
+      const supabase = createClient()
+      const { error } = await supabase
+        .from('shift_assignments')
+        .update(updates)
+        .eq('id', id)
+
+      if (error) throw error
+
+      toast({
+        title: "Success",
+        description: "Shift updated successfully",
+      })
+      fetchSchedules()
+      onUpdate()
+    } catch (error) {
+      console.error('Error updating shift:', error)
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update shift",
+      })
+    }
   }
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Add New Schedule</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={createSchedule} className="space-y-4">
-            <div className="space-y-2">
-              <Label>Date</Label>
-              <Calendar
-                mode="single"
-                selected={newSchedule.date}
-                onSelect={(date) => setNewSchedule({ ...newSchedule, date: date || new Date() })}
-                className="rounded-md border"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="shift">Shift</Label>
-              <Select
-                value={newSchedule.shiftId}
-                onValueChange={(value) => setNewSchedule({ ...newSchedule, shiftId: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a shift" />
-                </SelectTrigger>
-                <SelectContent>
-                  {shifts.map((shift) => (
-                    <SelectItem key={shift.id} value={shift.id}>
-                      {shift.name} ({shift.start_time} - {shift.end_time})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Button type="submit" disabled={!newSchedule.shiftId}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Schedule
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="startDate">Week Starting</Label>
+          <Input
+            id="startDate"
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+          />
+        </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Employee Schedules</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {schedules.length === 0 ? (
-            <p>No schedules set for this employee.</p>
-          ) : (
-            <div className="space-y-4">
-              {schedules.map((schedule) => (
-                <Card key={schedule.id}>
-                  <CardContent className="p-4">
-                    {editingId === schedule.id ? (
-                      <form onSubmit={(e) => {
-                        e.preventDefault()
-                        updateSchedule(schedule.id, {
-                          start_time: (e.target as any).start_time.value,
-                          end_time: (e.target as any).end_time.value
-                        })
-                      }} className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label htmlFor={`start_time_${schedule.id}`}>Start Time</Label>
-                            <Input
-                              id={`start_time_${schedule.id}`}
-                              name="start_time"
-                              type="time"
-                              defaultValue={schedule.start_time}
-                              required
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor={`end_time_${schedule.id}`}>End Time</Label>
-                            <Input
-                              id={`end_time_${schedule.id}`}
-                              name="end_time"
-                              type="time"
-                              defaultValue={schedule.end_time}
-                              required
-                            />
-                          </div>
-                        </div>
-                        <div className="flex justify-end space-x-2">
-                          <Button type="submit">Save</Button>
-                          <Button type="button" variant="outline" onClick={() => setEditingId(null)}>Cancel</Button>
-                        </div>
-                      </form>
-                    ) : (
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <p className="font-medium">{format(parseISO(schedule.date), 'MMMM d, yyyy')}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {schedule.start_time} - {schedule.end_time}
-                          </p>
-                        </div>
-                        <div className="space-x-2">
-                          <Button size="sm" variant="outline" onClick={() => setEditingId(schedule.id)}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="destructive" onClick={() => deleteSchedule(schedule.id)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
+        <form onSubmit={handleAddShift} className="space-y-4">
+          <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="date">Date</Label>
+              <Input id="date" name="date" type="date" required />
             </div>
-          )}
-        </CardContent>
-      </Card>
+            <div className="space-y-2">
+              <Label htmlFor="start_time">Start Time</Label>
+              <Input id="start_time" name="start_time" type="time" required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="end_time">End Time</Label>
+              <Input id="end_time" name="end_time" type="time" required />
+            </div>
+          </div>
+          <Button type="submit">Add Shift</Button>
+        </form>
+      </div>
+
+      <div className="space-y-4">
+        <h3 className="font-medium">Scheduled Shifts</h3>
+        {isLoading ? (
+          <div className="flex h-[200px] items-center justify-center">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          </div>
+        ) : schedules.length > 0 ? (
+          <div className="space-y-2">
+            {schedules.map((schedule) => (
+              <div
+                key={schedule.id}
+                className="flex items-center justify-between rounded-lg border p-4"
+              >
+                <div>
+                  <p className="font-medium">
+                    {format(parseISO(schedule.date), 'EEEE, MMMM d, yyyy')}
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    {format(parseISO(`2000-01-01T${schedule.start_time}`), 'h:mm a')} -{' '}
+                    {format(parseISO(`2000-01-01T${schedule.end_time}`), 'h:mm a')}
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-destructive"
+                  onClick={() => handleDeleteShift(schedule.id)}
+                >
+                  Delete
+                </Button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500">No shifts scheduled</p>
+        )}
+      </div>
     </div>
   )
 }

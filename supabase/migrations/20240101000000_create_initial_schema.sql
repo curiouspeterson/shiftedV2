@@ -39,40 +39,18 @@ create table if not exists public.shift_assignments (
     profile_id uuid not null references public.profiles(id) on delete cascade,
     shift_requirement_id uuid not null references public.shift_requirements(id) on delete cascade,
     date date not null,
+    start_time time not null,
+    end_time time not null,
     created_at timestamp with time zone not null default timezone('utc'::text, now()),
-    updated_at timestamp with time zone not null default timezone('utc'::text, now())
-);
-
--- Create system_status table
-create table if not exists public.system_status (
-    id uuid primary key default gen_random_uuid(),
-    component text not null,
-    status text not null,
-    message text,
-    last_checked timestamp with time zone not null default timezone('utc'::text, now()),
-    created_at timestamp with time zone not null default timezone('utc'::text, now()),
-    updated_at timestamp with time zone not null default timezone('utc'::text, now())
-);
-
--- Create time_off_requests table
-create table if not exists public.time_off_requests (
-    id uuid primary key default gen_random_uuid(),
-    profile_id uuid not null references public.profiles(id) on delete cascade,
-    start_date date not null,
-    end_date date not null,
-    reason text,
-    status text check (status in ('pending', 'approved', 'rejected')) not null default 'pending',
-    created_at timestamp with time zone not null default timezone('utc'::text, now()),
-    updated_at timestamp with time zone not null default timezone('utc'::text, now())
+    updated_at timestamp with time zone not null default timezone('utc'::text, now()),
+    constraint unique_shift_assignment unique(profile_id, shift_requirement_id, date)
 );
 
 -- Enable RLS on all tables
 alter table public.profiles enable row level security;
-alter table public.shift_requirements enable row level security;
 alter table public.employee_availability enable row level security;
+alter table public.shift_requirements enable row level security;
 alter table public.shift_assignments enable row level security;
-alter table public.system_status enable row level security;
-alter table public.time_off_requests enable row level security;
 
 -- RLS policies for profiles
 create policy "Users can view their own profile" on public.profiles for select using (auth.uid() = id);
@@ -92,20 +70,11 @@ create policy "Managers can view all availability" on public.employee_availabili
 create policy "Anyone can view shift requirements" on public.shift_requirements for select to authenticated using (true);
 create policy "Managers can manage shift requirements" on public.shift_requirements for all using (exists (select 1 from public.profiles where id = auth.uid() and role = 'manager'));
 
--- RLS policies for shift assignments
+-- RLS policies for shift_assignments
 create policy "Users can view own assignments" on public.shift_assignments for select using (auth.uid() = profile_id or exists (select 1 from public.profiles where id = auth.uid() and role = 'manager'));
 create policy "Users can update own assignments" on public.shift_assignments for update using (auth.uid() = profile_id or exists (select 1 from public.profiles where id = auth.uid() and role = 'manager'));
 create policy "Managers can insert assignments" on public.shift_assignments for insert with check (exists (select 1 from public.profiles where id = auth.uid() and role = 'manager'));
 create policy "Managers can delete assignments" on public.shift_assignments for delete using (exists (select 1 from public.profiles where id = auth.uid() and role = 'manager'));
-
--- RLS policies for system status
-create policy "Anyone can view system status" on public.system_status for select to authenticated using (true);
-create policy "Managers can manage system status" on public.system_status for all using (exists (select 1 from public.profiles where id = auth.uid() and role = 'manager'));
-
--- RLS policies for time_off_requests
-create policy "Users can view their own time off requests" on public.time_off_requests for select using (auth.uid() = profile_id);
-create policy "Users can insert their own time off requests" on public.time_off_requests for insert with check (auth.uid() = profile_id);
-create policy "Managers can update time off requests" on public.time_off_requests for update using (exists (select 1 from public.profiles where id = auth.uid() and role = 'manager'));
 
 -- Create function to handle new user creation
 create or replace function public.handle_new_user()
@@ -148,5 +117,3 @@ $$;
 create trigger update_profiles_updated_at before update on public.profiles for each row execute function public.update_updated_at();
 create trigger update_shift_requirements_updated_at before update on public.shift_requirements for each row execute function public.update_updated_at();
 create trigger update_shift_assignments_updated_at before update on public.shift_assignments for each row execute function public.update_updated_at();
-create trigger update_system_status_updated_at before update on public.system_status for each row execute function public.update_updated_at();
-create trigger update_time_off_requests_updated_at before update on public.time_off_requests for each row execute function public.update_updated_at();

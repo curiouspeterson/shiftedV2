@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import { supabase } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase/client"
 import { toast } from "@/components/ui/use-toast"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle } from 'lucide-react'
@@ -14,6 +14,8 @@ import { AlertCircle } from 'lucide-react'
 interface TimeOffRequestFormProps {
   onSubmit?: () => void
 }
+
+const supabase = createClient()
 
 export function TimeOffRequestForm({ onSubmit }: TimeOffRequestFormProps) {
   const [startDate, setStartDate] = useState<Date | undefined>()

@@ -1,7 +1,6 @@
 "use server"
 
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { createServerComponentClient } from '@/lib/supabase/server'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { CircleSlash, Clock, CheckCircle2 } from "lucide-react"
@@ -36,18 +35,7 @@ const statusConfig = {
 } as const
 
 export default async function StatusPage() {
-  const cookieStore = cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value
-        },
-      },
-    }
-  )
+  const supabase = createServerComponentClient()
 
   // Fetch system status data from Supabase
   const { data: systemData, error: systemError } = await supabase
@@ -90,7 +78,6 @@ export default async function StatusPage() {
             </div>
           </CardContent>
         </Card>
-
         <Card>
           <CardHeader>
             <CardTitle>Development Progress</CardTitle>
@@ -98,13 +85,11 @@ export default async function StatusPage() {
           <CardContent>
             <div className="space-y-4">
               {progressData?.map((progress) => (
-                <div key={progress.id}>
-                  <div className="flex items-center justify-between mb-2">
-                    <div>
-                      <p className="text-sm font-medium leading-none">
-                        {progress.feature}
-                      </p>
-                    </div>
+                <div key={progress.id} className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium leading-none">
+                      {progress.feature}
+                    </p>
                     <div className={statusConfig[progress.status].color}>
                       {statusConfig[progress.status].icon}
                     </div>

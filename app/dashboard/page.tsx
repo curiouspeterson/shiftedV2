@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
@@ -15,6 +15,7 @@ export default function DashboardPage() {
   useEffect(() => {
     const getUserEmail = async () => {
       try {
+        const supabase = createClient()
         const { data: { user }, error } = await supabase.auth.getUser()
         if (error) throw error
         setUserEmail(user?.email ?? null)

@@ -1,17 +1,24 @@
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
-import { addDays, format, parseISO, startOfWeek } from 'date-fns'
-import { ShiftRequirement, ShiftAssignment } from '@/types/shift'
+import { createAdminClient } from '@/lib/supabase/server'
+import { parseISO, startOfWeek, addDays } from 'date-fns'
+
+interface ShiftRequirement {
+  id: string
+  name: string
+  day_of_week: number
+  start_time: string
+  end_time: string
+  required_count: number
+}
 
 interface Employee {
   id: string
   full_name: string
   weekly_hour_limit: number
+  availability: Availability[]
 }
 
-interface EmployeeAvailability {
-  employee_id: string
+interface Availability {
   day_of_week: number
   start_time: string
   end_time: string
@@ -19,150 +26,173 @@ interface EmployeeAvailability {
 
 export async function POST(req: Request) {
   try {
+    const supabase = createAdminClient()
     const { startDate } = await req.json()
-    const cookieStore = cookies()
-    
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value
-          },
-        },
-      }
-    )
+
+    if (!startDate) {
+      return NextResponse.json(
+        { error: 'startDate is required' },
+        { status: 400 }
+      )
+    }
+
+    const parsedStartDate = parseISO(startDate)
+    if (isNaN(parsedStartDate.getTime())) {
+      return NextResponse.json(
+        { error: 'Invalid startDate format' },
+        { status: 400 }
+      )
+    }
 
     // Get the start of the week
-    const weekStart = startOfWeek(parseISO(startDate), { weekStartsOn: 0 })
+    const weekStart = startOfWeek(parsedStartDate, { weekStartsOn: 0 }) // Sunday as first day
 
-    // 1. Get all shift requirements
+    // Fetch all shift requirements
     const { data: shiftRequirements, error: shiftError } = await supabase
       .from('shift_requirements')
       .select('*')
-      .order('day_of_week, start_time')
+      .order('day_of_week', { ascending: true })
+      .order('start_time', { ascending: true })
 
-    if (shiftError) throw new Error('Error fetching shift requirements')
+    if (shiftError) {
+      throw new Error('Error fetching shift requirements')
+    }
 
-    // 2. Get all active employees
-    const { data: employees, error: employeeError } = await supabase
+    // Fetch all active employees with their availability
+    const { data: employeesData, error: employeesError } = await supabase
       .from('profiles')
-      .select('id, full_name, weekly_hour_limit')
+      .select(`
+        id,
+        full_name,
+        weekly_hour_limit,
+        availability:employee_availability (
+          day_of_week,
+          start_time,
+          end_time
+        )
+      `)
       .eq('is_active', true)
 
-    if (employeeError) throw new Error('Error fetching employees')
+    if (employeesError) {
+      throw new Error('Error fetching employees')
+    }
 
-    // 3. Get employee availability
-    const { data: availability, error: availabilityError } = await supabase
-      .from('employee_availability')
-      .select('*')
+    const employees: Employee[] = employeesData || []
 
-    if (availabilityError) throw new Error('Error fetching employee availability')
+    const schedule: {
+      [date: string]: {
+        shift_requirement_id: string
+        profile_id: string
+        date: string
+        start_time: string
+        end_time: string
+      }[]
+    } = {}
 
-    // Delete existing assignments for the week
-    const weekEnd = addDays(weekStart, 6)
-    const { error: deleteError } = await supabase
-      .from('shift_assignments')
-      .delete()
-      .gte('date', format(weekStart, 'yyyy-MM-dd'))
-      .lte('date', format(weekEnd, 'yyyy-MM-dd'))
+    // Helper function to calculate hours between two times
+    const calculateHours = (start: string, end: string): number => {
+      const [startHour, startMinute] = start.split(':').map(Number)
+      const [endHour, endMinute] = end.split(':').map(Number)
+      return endHour - startHour + (endMinute - startMinute) / 60
+    }
 
-    if (deleteError) throw new Error('Error deleting existing assignments')
+    // Initialize employee hours tracker
+    const employeeHours: { [employeeId: string]: number } = {}
+    employees.forEach((emp) => {
+      employeeHours[emp.id] = 0
+    })
 
-    // Generate schedule for each day of the week
-    const assignments: ShiftAssignment[] = []
-    const conflicts: string[] = []
+    // Iterate over each day of the week
+    for (let i = 0; i < 7; i++) {
+      const currentDate = addDays(weekStart, i)
+      const dateStr = currentDate.toISOString().split('T')[0] // YYYY-MM-DD
+      const dayOfWeek = currentDate.getDay() // 0 = Sunday
 
-    for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
-      const currentDate = addDays(weekStart, dayOffset)
-      const dayOfWeek = currentDate.getDay()
-      
-      // Get requirements for this day
-      const dayRequirements = shiftRequirements.filter(
-        (req: ShiftRequirement) => req.day_of_week === dayOfWeek
+      const shiftsForDay = shiftRequirements.filter(
+        (shift) => shift.day_of_week === dayOfWeek
       )
 
-      // Track employee hours for the week
-      const employeeHours: Record<string, number> = {}
+      schedule[dateStr] = []
 
-      for (const requirement of dayRequirements) {
-        const availableEmployees = employees.filter((employee: Employee) => {
+      for (const shift of shiftsForDay) {
+        let assignedCount = 0
+        const availableEmployees = employees.filter((employee) => {
           // Check if employee is available for this shift
-          const isAvailable = availability.some(
-            (a: EmployeeAvailability) =>
-              a.employee_id === employee.id &&
-              a.day_of_week === dayOfWeek &&
-              a.start_time <= requirement.start_time &&
-              a.end_time >= requirement.end_time
-          )
-
-          // Calculate shift duration in hours
-          const startHour = parseInt(requirement.start_time.split(':')[0])
-          const endHour = parseInt(requirement.end_time.split(':')[0])
-          const shiftDuration = endHour - startHour
-
-          // Check if adding this shift would exceed weekly hours
-          const currentHours = employeeHours[employee.id] || 0
-          const wouldExceedLimit = currentHours + shiftDuration > employee.weekly_hour_limit
-
-          return isAvailable && !wouldExceedLimit
+          return employee.availability.some((slot) => {
+            if (slot.day_of_week !== dayOfWeek) return false
+            return (
+              slot.start_time <= shift.start_time &&
+              slot.end_time >= shift.end_time
+            )
+          })
         })
 
-        // Assign employees to the shift
-        for (let i = 0; i < requirement.required_count; i++) {
-          if (availableEmployees.length > 0) {
-            // Select employee with least hours
-            const selectedEmployee = availableEmployees.reduce((min, emp) => 
-              (employeeHours[emp.id] || 0) < (employeeHours[min.id] || 0) ? emp : min
-            )
+        // Sort employees by least hours worked to balance workload
+        availableEmployees.sort(
+          (a, b) => employeeHours[a.id] - employeeHours[b.id]
+        )
 
-            // Create assignment
-            const assignment: ShiftAssignment = {
-              id: crypto.randomUUID(),
-              employee_id: selectedEmployee.id,
-              shift_requirement_id: requirement.id,
-              date: format(currentDate, 'yyyy-MM-dd')
-            }
-            assignments.push(assignment)
+        for (const employee of availableEmployees) {
+          if (assignedCount >= shift.required_count) break
 
-            // Update employee hours
-            const shiftDuration = 
-              parseInt(requirement.end_time.split(':')[0]) - 
-              parseInt(requirement.start_time.split(':')[0])
-            employeeHours[selectedEmployee.id] = 
-              (employeeHours[selectedEmployee.id] || 0) + shiftDuration
-
-            // Remove employee from available pool for this shift
-            const index = availableEmployees.indexOf(selectedEmployee)
-            availableEmployees.splice(index, 1)
-          } else {
-            conflicts.push(
-              `Unable to fill shift on ${format(currentDate, 'yyyy-MM-dd')} at ${requirement.start_time}`
-            )
+          const shiftHours = calculateHours(shift.start_time, shift.end_time)
+          if (
+            employeeHours[employee.id] + shiftHours <=
+            employee.weekly_hour_limit
+          ) {
+            schedule[dateStr].push({
+              shift_requirement_id: shift.id,
+              profile_id: employee.id,
+              date: dateStr,
+              start_time: shift.start_time,
+              end_time: shift.end_time,
+            })
+            employeeHours[employee.id] += shiftHours
+            assignedCount++
           }
+        }
+
+        // Handle understaffing
+        if (assignedCount < shift.required_count) {
+          console.warn(
+            `Understaffed shift on ${dateStr} for shift_requirement_id ${shift.id}`
+          )
+          // Optionally, log this to a monitoring system or notify managers
         }
       }
     }
 
-    // Insert new assignments
-    if (assignments.length > 0) {
-      const { error: insertError } = await supabase
-        .from('shift_assignments')
-        .insert(assignments)
+    // Insert the generated schedule into shift_assignments
+    const assignmentsToInsert: {
+      profile_id: string
+      shift_requirement_id: string
+      date: string
+      start_time: string
+      end_time: string
+    }[] = []
 
-      if (insertError) throw new Error('Error inserting assignments')
+    for (const date in schedule) {
+      for (const assignment of schedule[date]) {
+        assignmentsToInsert.push(assignment)
+      }
     }
 
-    return NextResponse.json({
-      success: true,
-      assignmentsCount: assignments.length,
-      conflicts
-    })
-  } catch (error) {
-    console.error('Schedule generation error:', error)
+    const { error: insertError } = await supabase
+      .from('shift_assignments')
+      .insert(assignmentsToInsert)
+
+    if (insertError) {
+      throw new Error('Error inserting shift assignments')
+    }
+
     return NextResponse.json(
-      { error: 'Failed to generate schedule' },
+      { message: 'Schedule generated successfully', schedule },
+      { status: 200 }
+    )
+  } catch (error: any) {
+    console.error('Error generating schedule:', error)
+    return NextResponse.json(
+      { error: error.message || 'Internal Server Error' },
       { status: 500 }
     )
   }

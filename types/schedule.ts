@@ -8,27 +8,16 @@ export interface ShiftRequirement {
 
 export interface ShiftAssignment {
   id: string
-  employee_id: string
+  date: string
   shift_requirement_id: string
-  date: string
-}
-
-export interface ScheduleDay {
-  date: string
-  shifts: {
-    requirement: ShiftRequirement
-    assignments: {
-      id: string
-      employee: {
-        id: string
-        full_name: string
-      }
-    }[]
-  }[]
+  profile_id: string
+  employee_name?: string
+  start_time: string
+  end_time: string
+  created_at: string
+  updated_at: string
 }
 
 export interface WeeklySchedule {
-  startDate: string
-  endDate: string
-  days: ScheduleDay[]
+  [date: string]: ShiftAssignment[]
 } 

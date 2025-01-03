@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent } from "@/components/ui/card"
 import { format } from "date-fns"
 
@@ -19,6 +19,8 @@ type Availability = {
 const daysOfWeek = [
   "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"
 ]
+
+const supabase = createClient()
 
 export function EmployeeAvailability({ employeeId }: AvailabilityProps) {
   const [availability, setAvailability] = useState<Availability[]>([])

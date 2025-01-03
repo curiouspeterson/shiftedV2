@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { createBrowserClient } from '@supabase/ssr'
+import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -20,25 +20,23 @@ export default function SignUpPage() {
     setError(null)
 
     try {
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
-
-      const { error: signUpError } = await supabase.auth.signUp({
+      const supabase = createClient()
+      
+      const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
           data: {
             full_name: fullName,
+            role: 'employee',
+            weekly_hour_limit: 40
           }
         }
       })
 
-      if (signUpError) throw signUpError
+      if (error) throw error
 
-      router.push("/login?message=Check your email to confirm your account")
+      router.push("/login")
     } catch (error) {
       if (error instanceof Error) {
         setError(error.message)
@@ -91,7 +89,7 @@ export default function SignUpPage() {
             />
           </div>
           <Button type="submit" className="w-full">
-            Sign Up
+            Create Account
           </Button>
         </form>
       </div>

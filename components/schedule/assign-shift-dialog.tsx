@@ -1,14 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { format } from "date-fns"
+import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog"
 import {
   Select,
@@ -17,96 +16,99 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { supabase } from "@/lib/supabase"
 import { toast } from "@/components/ui/use-toast"
 import { type ShiftRequirement } from "@/types/schedule"
-
-interface AvailabilitySlot {
-  day_of_week: number
-  start_time: string
-  end_time: string
-}
-
-interface Employee {
-  id: string
-  full_name: string
-  availability: AvailabilitySlot[]
-}
+import { type Employee } from "@/types/employee"
 
 interface AssignShiftDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  requirement: ShiftRequirement | null
-  date: string | null
+  shiftRequirement: ShiftRequirement
+  date: string
   onSuccess: () => void
 }
 
 export function AssignShiftDialog({
   open,
   onOpenChange,
-  requirement,
+  shiftRequirement,
   date,
   onSuccess,
 }: AssignShiftDialogProps) {
   const [employees, setEmployees] = useState<Employee[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("")
+  const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
-    if (open && requirement && date) {
+    if (open) {
       fetchAvailableEmployees()
     }
-  }, [open, requirement, date])
+  }, [open, shiftRequirement, date])
 
   const fetchAvailableEmployees = async () => {
-    if (!requirement || !date) return
-
-    setIsLoading(true)
     try {
+      const supabase = createClient()
       const { data, error } = await supabase
-        .from("profiles")
-        .select("*, employee_availability(*)")
-        .order("full_name")
+        .from('profiles')
+        .select(`
+          id,
+          full_name,
+          email,
+          role,
+          weekly_hour_limit,
+          availability:employee_availability (
+            day_of_week,
+            start_time,
+            end_time
+          )
+        `)
+        .eq('is_active', true)
 
       if (error) throw error
 
-      const employeesWithAvailability = data.map(employee => ({
-        ...employee,
-        availability: employee.employee_availability || []
-      }))
-
       // Filter employees based on availability
-      const availableEmployees = employeesWithAvailability.filter(employee => {
-        return employee.availability.some((slot: AvailabilitySlot) => 
-          slot.day_of_week === requirement.day_of_week &&
-          slot.start_time <= requirement.start_time &&
-          slot.end_time >= requirement.end_time
-        )
+      const availableEmployees = (data || []).filter(employee => {
+        const employeeWithAvailability = {
+          ...employee,
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        } as Employee
+        return employeeWithAvailability.availability?.some(slot => {
+          return (
+            slot.day_of_week === new Date(date).getDay() &&
+            slot.start_time <= shiftRequirement.start_time &&
+            slot.end_time >= shiftRequirement.end_time
+          )
+        })
       })
 
-      setEmployees(availableEmployees)
+      setEmployees(availableEmployees as Employee[])
     } catch (error) {
-      console.error("Error fetching employees:", error)
+      console.error('Error fetching employees:', error)
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to load available employees. Please try again.",
+        description: "Failed to fetch available employees",
       })
-    } finally {
-      setIsLoading(false)
     }
   }
 
-  const handleAssignShift = async (employeeId: string) => {
-    if (!requirement || !date) return
+  const handleAssign = async () => {
+    if (!selectedEmployeeId) return
 
+    setIsLoading(true)
     try {
+      const supabase = createClient()
       const { error } = await supabase
-        .from("shift_assignments")
+        .from('shift_assignments')
         .insert([
           {
-            employee_id: employeeId,
-            shift_requirement_id: requirement.id,
+            profile_id: selectedEmployeeId,
+            shift_requirement_id: shiftRequirement.id,
             date,
+            start_time: shiftRequirement.start_time,
+            end_time: shiftRequirement.end_time,
           },
         ])
 
@@ -114,16 +116,19 @@ export function AssignShiftDialog({
 
       toast({
         title: "Success",
-        description: "Shift assigned successfully.",
+        description: "Shift assigned successfully",
       })
       onSuccess()
+      onOpenChange(false)
     } catch (error) {
-      console.error("Error assigning shift:", error)
+      console.error('Error assigning shift:', error)
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to assign shift. Please try again.",
+        description: "Failed to assign shift",
       })
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -132,25 +137,9 @@ export function AssignShiftDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Assign Shift</DialogTitle>
-          {requirement && (
-            <DialogDescription>
-              {format(new Date(`1970-01-01T${requirement.start_time}`), "h:mm a")} -{" "}
-              {format(new Date(`1970-01-01T${requirement.end_time}`), "h:mm a")}
-              {date && ` on ${format(new Date(date), "MMM dd, yyyy")}`}
-            </DialogDescription>
-          )}
         </DialogHeader>
-
-        {isLoading ? (
-          <div className="flex h-[100px] items-center justify-center">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-          </div>
-        ) : employees.length === 0 ? (
-          <p className="text-center text-muted-foreground">
-            No available employees found for this shift.
-          </p>
-        ) : (
-          <Select onValueChange={handleAssignShift}>
+        <div className="space-y-4">
+          <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId}>
             <SelectTrigger>
               <SelectValue placeholder="Select an employee" />
             </SelectTrigger>
@@ -162,7 +151,15 @@ export function AssignShiftDialog({
               ))}
             </SelectContent>
           </Select>
-        )}
+          <div className="flex justify-end space-x-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAssign} disabled={!selectedEmployeeId || isLoading}>
+              {isLoading ? "Assigning..." : "Assign"}
+            </Button>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   )
