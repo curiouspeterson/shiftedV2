@@ -1,112 +1,191 @@
 "use client"
 
 import { useState } from "react"
-import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { createBrowserClient } from '@supabase/ssr'
+import { toast } from "@/components/ui/use-toast"
 
-const daysOfWeek = [
-  "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"
-];
+const DAYS_OF_WEEK = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday"
+]
 
-export function AvailabilityList({ availabilities, onAvailabilityUpdated, onAvailabilityDeleted }) {
-  const [editingId, setEditingId] = useState(null)
+interface Availability {
+  id: string
+  profile_id: string
+  day_of_week: number
+  start_time: string
+  end_time: string
+}
+
+interface AvailabilityListProps {
+  availabilities: Availability[]
+  onAvailabilityUpdated: () => void
+  onAvailabilityDeleted: () => void
+}
+
+export function AvailabilityList({
+  availabilities,
+  onAvailabilityUpdated,
+  onAvailabilityDeleted
+}: AvailabilityListProps) {
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [editStartTime, setEditStartTime] = useState("")
   const [editEndTime, setEditEndTime] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
 
-  const handleEdit = (availability) => {
+  const handleEdit = (availability: Availability) => {
     setEditingId(availability.id)
     setEditStartTime(availability.start_time)
     setEditEndTime(availability.end_time)
   }
 
-  const handleUpdate = async (id) => {
+  const handleUpdate = async (id: string) => {
+    setIsLoading(true)
     try {
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      )
+
       const { error } = await supabase
         .from('employee_availability')
-        .update({ start_time: editStartTime, end_time: editEndTime })
+        .update({
+          start_time: editStartTime,
+          end_time: editEndTime
+        })
         .eq('id', id)
-      
+
       if (error) throw error
-      
+
+      toast({
+        title: "Success",
+        description: "Availability updated successfully",
+      })
+
       setEditingId(null)
       onAvailabilityUpdated()
     } catch (error) {
-      console.error('Error updating availability:', error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update availability",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
     }
   }
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: string) => {
+    setIsLoading(true)
     try {
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      )
+
       const { error } = await supabase
         .from('employee_availability')
         .delete()
         .eq('id', id)
-      
+
       if (error) throw error
-      
+
+      toast({
+        title: "Success",
+        description: "Availability deleted successfully",
+      })
+
       onAvailabilityDeleted()
     } catch (error) {
-      console.error('Error deleting availability:', error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete availability",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
     }
   }
 
+  if (availabilities.length === 0) {
+    return <p className="text-muted-foreground">No availabilities set.</p>
+  }
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Your Availabilities</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Day</TableHead>
-              <TableHead>Start Time</TableHead>
-              <TableHead>End Time</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {availabilities.map((availability) => (
-              <TableRow key={availability.id}>
-                <TableCell>{daysOfWeek[availability.day_of_week]}</TableCell>
-                <TableCell>
-                  {editingId === availability.id ? (
-                    <Input
-                      type="time"
-                      value={editStartTime}
-                      onChange={(e) => setEditStartTime(e.target.value)}
-                    />
-                  ) : (
-                    availability.start_time
-                  )}
-                </TableCell>
-                <TableCell>
-                  {editingId === availability.id ? (
-                    <Input
-                      type="time"
-                      value={editEndTime}
-                      onChange={(e) => setEditEndTime(e.target.value)}
-                    />
-                  ) : (
-                    availability.end_time
-                  )}
-                </TableCell>
-                <TableCell>
-                  {editingId === availability.id ? (
-                    <Button onClick={() => handleUpdate(availability.id)}>Save</Button>
-                  ) : (
-                    <Button onClick={() => handleEdit(availability)}>Edit</Button>
-                  )}
-                  <Button variant="destructive" onClick={() => handleDelete(availability.id)}>Delete</Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+    <div className="space-y-4 mt-6">
+      {availabilities.map((availability) => (
+        <div key={availability.id} className="flex items-center gap-4 p-4 border rounded-lg">
+          <div className="flex-1">
+            <p className="font-medium">{DAYS_OF_WEEK[availability.day_of_week]}</p>
+            {editingId === availability.id ? (
+              <div className="flex gap-2 mt-2">
+                <Input
+                  type="time"
+                  value={editStartTime}
+                  onChange={(e) => setEditStartTime(e.target.value)}
+                />
+                <span className="self-center">to</span>
+                <Input
+                  type="time"
+                  value={editEndTime}
+                  onChange={(e) => setEditEndTime(e.target.value)}
+                />
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                {availability.start_time} to {availability.end_time}
+              </p>
+            )}
+          </div>
+          <div className="flex gap-2">
+            {editingId === availability.id ? (
+              <>
+                <Button
+                  size="sm"
+                  onClick={() => handleUpdate(availability.id)}
+                  disabled={isLoading}
+                >
+                  Save
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setEditingId(null)}
+                  disabled={isLoading}
+                >
+                  Cancel
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleEdit(availability)}
+                  disabled={isLoading}
+                >
+                  Edit
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => handleDelete(availability.id)}
+                  disabled={isLoading}
+                >
+                  Delete
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
   )
 }

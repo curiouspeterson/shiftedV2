@@ -11,7 +11,11 @@ import { toast } from "@/components/ui/use-toast"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle } from 'lucide-react'
 
-export function TimeOffRequestForm() {
+interface TimeOffRequestFormProps {
+  onSubmit?: () => void
+}
+
+export function TimeOffRequestForm({ onSubmit }: TimeOffRequestFormProps) {
   const [startDate, setStartDate] = useState<Date | undefined>()
   const [endDate, setEndDate] = useState<Date | undefined>()
   const [reason, setReason] = useState("")
@@ -67,6 +71,9 @@ export function TimeOffRequestForm() {
       setStartDate(undefined)
       setEndDate(undefined)
       setReason("")
+      
+      // Call onSubmit callback if provided
+      onSubmit?.()
     } catch (error) {
       console.error('Error submitting time off request:', error)
       setError("Failed to submit time off request. Please try again later.")

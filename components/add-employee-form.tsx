@@ -1,109 +1,132 @@
 "use client"
 
 import { useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { useRouter } from "next/navigation"
+import { createBrowserClient } from "@supabase/ssr"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/components/ui/use-toast"
 
-interface AddEmployeeFormProps {
-  onSuccess: () => void
-  onCancel: () => void
+interface AddEmployeeFormData {
+  email: string
+  fullName: string
+  role: 'employee' | 'manager'
+  weeklyHourLimit: number
 }
 
-export function AddEmployeeForm({ onSuccess, onCancel }: AddEmployeeFormProps) {
-  const [loading, setLoading] = useState(false)
-  const [formData, setFormData] = useState({
-    email: "",
-    full_name: "",
-    role: "employee",
-    password: "" // For initial account setup
+export function AddEmployeeForm() {
+  const router = useRouter()
+  const [isLoading, setIsLoading] = useState(false)
+  const [formData, setFormData] = useState<AddEmployeeFormData>({
+    email: '',
+    fullName: '',
+    role: 'employee',
+    weeklyHourLimit: 40
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
+    setIsLoading(true)
 
     try {
-      // First, create the auth user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      )
+
+      // Generate a secure random password
+      const password = Math.random().toString(36).slice(-8) + 'Aa1!'
+
+      // Create the user in Auth
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: formData.email,
-        password: formData.password,
+        password: password,
         options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
           data: {
-            full_name: formData.full_name,
-            role: formData.role
+            full_name: formData.fullName,
+            role: formData.role,
+            weekly_hour_limit: formData.weeklyHourLimit
           }
         }
       })
 
-      if (authError) throw authError
+      if (signUpError) throw signUpError
 
-      // The profile will be created automatically through the database trigger
-      // we set up earlier, but we can update it with additional information
-      if (authData.user) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({
-            full_name: formData.full_name,
-            role: formData.role
-          })
-          .eq('id', authData.user.id)
+      if (!authData.user) {
+        throw new Error('Failed to create user')
+      }
 
-        if (profileError) throw profileError
+      // Wait a moment for the trigger to create the profile
+      await new Promise(resolve => setTimeout(resolve, 2000))
+
+      // Verify the profile was created
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', authData.user.id)
+        .single()
+
+      if (profileError || !profile) {
+        // If profile doesn't exist, clean up the auth user
+        await supabase.auth.admin.deleteUser(authData.user.id)
+        throw new Error('Failed to create user profile')
       }
 
       toast({
-        title: "Employee added successfully",
-        description: "An email has been sent to the employee with their login credentials."
+        title: 'Success',
+        description: 'Employee added successfully. They will receive an email to set their password.',
       })
-      
-      onSuccess()
+
+      router.push('/dashboard/employees')
     } catch (error) {
-      console.error('Error adding employee:', error)
       toast({
-        title: "Error adding employee",
-        description: error.message,
-        variant: "destructive"
+        title: 'Error adding employee',
+        description: error instanceof Error ? error.message : 'An unexpected error occurred',
+        variant: 'destructive'
       })
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="full_name">Full Name</Label>
-        <Input
-          id="full_name"
-          required
-          value={formData.full_name}
-          onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-        />
-      </div>
-
+    <form onSubmit={handleSubmit} className="space-y-6">
       <div className="space-y-2">
         <Label htmlFor="email">Email</Label>
         <Input
           id="email"
           type="email"
-          required
           value={formData.email}
-          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+          onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+          placeholder="employee@example.com"
+          required
         />
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="password">Initial Password</Label>
+        <Label htmlFor="fullName">Full Name</Label>
         <Input
-          id="password"
-          type="password"
+          id="fullName"
+          value={formData.fullName}
+          onChange={(e) => setFormData(prev => ({ ...prev, fullName: e.target.value }))}
+          placeholder="John Doe"
           required
-          value={formData.password}
-          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="weeklyHourLimit">Weekly Hour Limit</Label>
+        <Input
+          id="weeklyHourLimit"
+          type="number"
+          min={0}
+          max={168}
+          value={formData.weeklyHourLimit}
+          onChange={(e) => setFormData(prev => ({ ...prev, weeklyHourLimit: parseInt(e.target.value) }))}
+          required
         />
       </div>
 
@@ -111,7 +134,7 @@ export function AddEmployeeForm({ onSuccess, onCancel }: AddEmployeeFormProps) {
         <Label htmlFor="role">Role</Label>
         <Select
           value={formData.role}
-          onValueChange={(value) => setFormData({ ...formData, role: value })}
+          onValueChange={(value: 'employee' | 'manager') => setFormData(prev => ({ ...prev, role: value }))}
         >
           <SelectTrigger>
             <SelectValue placeholder="Select role" />
@@ -123,14 +146,9 @@ export function AddEmployeeForm({ onSuccess, onCancel }: AddEmployeeFormProps) {
         </Select>
       </div>
 
-      <div className="flex justify-end space-x-2">
-        <Button type="button" variant="outline" onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button type="submit" disabled={loading}>
-          {loading ? "Adding..." : "Add Employee"}
-        </Button>
-      </div>
+      <Button type="submit" disabled={isLoading}>
+        {isLoading ? "Adding..." : "Add Employee"}
+      </Button>
     </form>
   )
 }
