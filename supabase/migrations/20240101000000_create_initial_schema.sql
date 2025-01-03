@@ -57,6 +57,7 @@ create policy "Users can view their own profile" on public.profiles for select u
 create policy "Users can update their own profile" on public.profiles for update using (auth.uid() = id);
 create policy "Managers can view all profiles" on public.profiles for select using (exists (select 1 from public.profiles where id = auth.uid() and role = 'manager'));
 create policy "Managers can update all profiles" on public.profiles for update using (exists (select 1 from public.profiles where id = auth.uid() and role = 'manager'));
+create policy "Managers can delete profiles" on public.profiles for delete using (exists (select 1 from public.profiles where id = auth.uid() and role = 'manager'));
 create policy "System can create profiles" on public.profiles for insert with check (true);
 
 -- RLS policies for employee_availability

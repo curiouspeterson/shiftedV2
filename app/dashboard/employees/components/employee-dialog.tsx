@@ -58,37 +58,31 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
     setIsLoading(true)
 
     try {
-      const supabase = createClient()
-
-      if (employee) {
-        // Update existing employee
-        const { error } = await supabase
-          .from('profiles')
-          .update({
+      const response = await fetch('/api/employees/route', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: employee ? 'update' : 'create',
+          data: {
+            id: employee?.id,
             email,
             full_name: fullName,
             role,
             weekly_hour_limit: parseInt(weeklyHourLimit),
-          })
-          .eq('id', employee.id)
-
-        if (error) throw error
-      } else {
-        // Create new employee
-        const { error: signUpError } = await supabase.auth.signUp({
-          email,
-          password: 'temppass123', // You should implement a proper password system
-          options: {
-            data: {
-              full_name: fullName,
-              role,
-              weekly_hour_limit: parseInt(weeklyHourLimit),
-            }
           }
         })
+      })
 
-        if (signUpError) throw signUpError
+      if (!response.ok) {
+        const error = await response.json()
+        console.error('Server response:', error)
+        throw new Error(error.message || 'Failed to save employee')
       }
+
+      const result = await response.json()
+      console.log('Operation successful:', result)
 
       toast({
         title: "Success",
@@ -101,7 +95,7 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
       toast({
         variant: "destructive",
         title: "Error",
-        description: `Failed to ${employee ? 'update' : 'create'} employee`,
+        description: error instanceof Error ? error.message : `Failed to ${employee ? 'update' : 'create'} employee`,
       })
     } finally {
       setIsLoading(false)
