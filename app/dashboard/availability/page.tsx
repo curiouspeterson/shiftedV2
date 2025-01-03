@@ -1,73 +1,74 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { supabase } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase/client"
 import { AvailabilityForm } from "@/components/availability-form"
 import { AvailabilityList } from "@/components/availability-list"
-import { EmployeeAvailabilityManager } from "@/components/employee-availability-manager"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
+interface Availability {
+  id: string
+  profile_id: string
+  day_of_week: number
+  start_time: string
+  end_time: string
+}
+
 export default function AvailabilityPage() {
-  const [availabilities, setAvailabilities] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [userId, setUserId] = useState<string | null>(null);
+  const [availabilities, setAvailabilities] = useState<Availability[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const fetchUserId = async () => {
-      const { data: { user }, error } = await supabase.auth.getUser();
-      if (error) {
-        console.error("Error fetching user:", error);
-      } else if (user) {
-        setUserId(user.id);
-      }
-    };
+    fetchAvailabilities()
+  }, [])
 
-    fetchUserId();
-  }, []);
-
-  useEffect(() => {
-    if (userId) {
-      fetchAvailabilities();
-    }
-  }, [userId]);
-
-  async function fetchAvailabilities() {
+  const fetchAvailabilities = async () => {
     try {
-      setLoading(true);
+      const supabase = createClient()
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (userError) throw userError
+      if (!user) throw new Error('No user found')
+
       const { data, error } = await supabase
         .from('employee_availability')
         .select('*')
-        .eq('user_id', userId)
-        .order('day_of_week', { ascending: true });
+        .eq('profile_id', user.id)
+        .order('day_of_week')
 
-      if (error) throw error;
-      setAvailabilities(data || []);
+      if (error) throw error
+      setAvailabilities(data || [])
     } catch (error) {
-      console.error('Error fetching availabilities:', error);
+      console.error('Error fetching availabilities:', error)
     } finally {
-      setLoading(false);
+      setIsLoading(false)
     }
   }
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Manage Your Availability</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <AvailabilityForm onAvailabilityAdded={fetchAvailabilities} />
-          {loading ? (
-            <p>Loading availabilities...</p>
-          ) : (
-            <AvailabilityList
-              availabilities={availabilities}
+      <h1 className="text-3xl font-bold">Availability</h1>
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Set Your Availability</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <AvailabilityForm onAvailabilityAdded={fetchAvailabilities} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Current Availability</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <AvailabilityList 
+              availabilities={availabilities} 
               onAvailabilityUpdated={fetchAvailabilities}
               onAvailabilityDeleted={fetchAvailabilities}
             />
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
     </div>
-  );
+  )
 }

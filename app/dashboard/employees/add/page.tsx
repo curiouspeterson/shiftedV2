@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { createBrowserClient } from '@supabase/ssr'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -30,7 +30,10 @@ export default function AddEmployeePage() {
         fullName: '',
         role: 'employee'
     })
-    const supabase = createClientComponentClient()
+    const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target
@@ -49,7 +52,7 @@ export default function AddEmployeePage() {
             // Generate a secure random password
             const password = Math.random().toString(36).slice(-8) + 'Aa1!'
 
-            // Create the user in Auth
+            // Create the user in Auth with metadata
             const { data: authData, error: signUpError } = await supabase.auth.signUp({
                 email: formData.email,
                 password: password,
@@ -57,7 +60,8 @@ export default function AddEmployeePage() {
                     emailRedirectTo: `${window.location.origin}/auth/callback`,
                     data: {
                         full_name: formData.fullName,
-                        role: formData.role
+                        role: formData.role,
+                        weekly_hour_limit: 40
                     }
                 }
             })
@@ -70,26 +74,6 @@ export default function AddEmployeePage() {
                 throw new Error('Failed to create user')
             }
 
-            // Create profile
-            const { error: profileError } = await supabase
-                .from('profiles')
-                .upsert({
-                    id: authData.user.id,
-                    full_name: formData.fullName,
-                    email: formData.email,
-                    role: formData.role,
-                    status: 'active', // Set initial status to 'active'
-                    updated_at: new Date().toISOString()
-                }, {
-                    onConflict: 'id'
-                })
-
-            if (profileError) {
-                // If profile creation fails, clean up the auth user
-                await supabase.auth.admin.deleteUser(authData.user.id)
-                throw profileError
-            }
-
             toast({
                 title: 'Success',
                 description: 'Employee added successfully. They will receive an email to set their password.',
@@ -97,6 +81,7 @@ export default function AddEmployeePage() {
 
             router.push('/dashboard/employees')
         } catch (error) {
+            console.error('Error adding employee:', error)
             toast({
                 variant: 'destructive',
                 title: 'Error',
@@ -160,9 +145,7 @@ export default function AddEmployeePage() {
                             <Button
                                 type="button"
                                 variant="outline"
-                                onClick={() => {
-                                    router.back()
-                                }}
+                                onClick={() => router.back()}
                             >
                                 Cancel
                             </Button>

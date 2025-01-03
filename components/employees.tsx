@@ -4,49 +4,79 @@ import * as React from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Plus } from "lucide-react"
-import { supabase } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase/client"
 import { toast } from "@/components/ui/use-toast"
 import { type Employee } from "@/types/employee"
+import { EmployeeDialog } from "@/app/dashboard/employees/components/employee-dialog"
 
-export default function Employees() {
+export function Employees() {
   const [employees, setEmployees] = React.useState<Employee[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
+  const [isDialogOpen, setIsDialogOpen] = React.useState(false)
+  const [selectedEmployee, setSelectedEmployee] = React.useState<Employee | null>(null)
 
   React.useEffect(() => {
     fetchEmployees()
   }, [])
 
   const fetchEmployees = async () => {
-    setIsLoading(true)
     try {
+      setIsLoading(true)
+      const supabase = createClient()
       const { data, error } = await supabase
-        .from("profiles")
-        .select("*, employee_availability(*)")
-        .order("full_name")
+        .from('profiles')
+        .select(`
+          *,
+          availability:employee_availability (*)
+        `)
+        .order('full_name')
 
-      if (error) {
-        console.error("Error fetching employees:", error)
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to load employees. Please try again.",
-        })
-      } else {
-        const employeesWithAvailability = data?.map(employee => ({
-          ...employee,
-          availability: employee.employee_availability || []
-        })) || []
-        setEmployees(employeesWithAvailability)
-      }
+      if (error) throw error
+      setEmployees(data || [])
     } catch (error) {
-      console.error("Error fetching employees:", error)
+      console.error('Error fetching employees:', error)
       toast({
         variant: "destructive",
         title: "Error",
-        description: "An unexpected error occurred. Please try again.",
+        description: "Failed to fetch employees",
       })
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleAddEmployee = () => {
+    setSelectedEmployee(null)
+    setIsDialogOpen(true)
+  }
+
+  const handleEditEmployee = (employee: Employee) => {
+    setSelectedEmployee(employee)
+    setIsDialogOpen(true)
+  }
+
+  const handleDeleteEmployee = async (employeeId: string) => {
+    try {
+      const supabase = createClient()
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', employeeId)
+
+      if (error) throw error
+
+      toast({
+        title: "Success",
+        description: "Employee deleted successfully",
+      })
+      fetchEmployees()
+    } catch (error) {
+      console.error('Error deleting employee:', error)
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to delete employee",
+      })
     }
   }
 
@@ -61,7 +91,7 @@ export default function Employees() {
   return (
     <div className="space-y-6">
       <div className="flex justify-end">
-        <Button>
+        <Button onClick={handleAddEmployee}>
           <Plus className="h-4 w-4 mr-2" />
           Add Employee
         </Button>
@@ -70,17 +100,26 @@ export default function Employees() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {employees.map((employee) => (
           <Card key={employee.id}>
-            <CardContent className="p-6">
+            <CardContent className="p-4">
               <div className="space-y-2">
-                <h3 className="font-semibold">{employee.full_name}</h3>
-                <p className="text-sm text-muted-foreground">{employee.email}</p>
-                <p className="text-sm text-muted-foreground capitalize">{employee.role}</p>
+                <h3 className="font-medium">{employee.full_name}</h3>
+                <p className="text-sm text-gray-500">{employee.email}</p>
+                <p className="text-sm text-gray-500 capitalize">{employee.role}</p>
               </div>
               <div className="mt-4 space-x-2">
-                <Button variant="outline" size="sm">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleEditEmployee(employee)}
+                >
                   Edit
                 </Button>
-                <Button variant="outline" size="sm" className="text-destructive">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-destructive"
+                  onClick={() => handleDeleteEmployee(employee.id)}
+                >
                   Delete
                 </Button>
               </div>
@@ -88,6 +127,13 @@ export default function Employees() {
           </Card>
         ))}
       </div>
+
+      <EmployeeDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        employee={selectedEmployee}
+        onSuccess={fetchEmployees}
+      />
     </div>
   )
 } 

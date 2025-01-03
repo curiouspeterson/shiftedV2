@@ -4,7 +4,7 @@ import * as React from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Plus } from "lucide-react"
-import { supabase } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase/client"
 import { toast } from "@/components/ui/use-toast"
 import { type Employee } from "@/types/employee"
 import { EmployeeDialog } from "./employee-dialog"
@@ -33,25 +33,32 @@ export function EmployeesList() {
   const fetchEmployees = async () => {
     setIsLoading(true)
     try {
-      const { data, error } = await supabase
+      const supabase = createClient()
+      
+      // Fetch all active employees from the profiles table
+      const { data: employeesData, error: employeesError } = await supabase
         .from("profiles")
-        .select("*, employee_availability(*)")
+        .select("*")
         .order("full_name")
 
-      if (error) {
-        console.error("Error fetching employees:", error)
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to load employees. Please try again.",
-        })
-      } else {
-        const employeesWithAvailability = data?.map(employee => ({
-          ...employee,
-          availability: employee.employee_availability || []
-        })) || []
-        setEmployees(employeesWithAvailability)
-      }
+      if (employeesError) throw employeesError
+
+      // Fetch all availability records
+      const { data: availabilityData, error: availabilityError } = await supabase
+        .from("employee_availability")
+        .select("*")
+
+      if (availabilityError) throw availabilityError
+      
+      // Combine employee data with their availability
+      const formattedData = employeesData.map(employee => ({
+        ...employee,
+        availability: availabilityData.filter(
+          availability => availability.profile_id === employee.id
+        )
+      })) as Employee[]
+      
+      setEmployees(formattedData)
     } catch (error) {
       console.error("Error fetching employees:", error)
       toast({
@@ -76,6 +83,7 @@ export function EmployeesList() {
 
   const handleDeleteEmployee = async (employeeId: string) => {
     try {
+      const supabase = createClient()
       const { error } = await supabase
         .from("profiles")
         .delete()
@@ -134,14 +142,14 @@ export function EmployeesList() {
                 <h3 className="font-semibold">{employee.full_name}</h3>
                 <p className="text-sm text-muted-foreground">{employee.email}</p>
                 <p className="text-sm text-muted-foreground capitalize">{employee.role}</p>
-                {employee.availability.length > 0 && (
+                {employee.availability?.length > 0 && (
                   <div className="mt-4">
                     <h4 className="text-sm font-medium mb-2">Availability</h4>
                     <div className="space-y-1">
                       {employee.availability
                         .sort((a, b) => a.day_of_week - b.day_of_week)
-                        .map((slot, index) => (
-                          <p key={index} className="text-sm text-muted-foreground">
+                        .map((slot) => (
+                          <p key={slot.id} className="text-sm text-muted-foreground">
                             {DAYS_OF_WEEK[slot.day_of_week]}: {formatTime(slot.start_time)} - {formatTime(slot.end_time)}
                           </p>
                         ))}

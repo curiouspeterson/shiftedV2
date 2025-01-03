@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { format } from "date-fns"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { supabase } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase/client"
 import { Loader2, AlertCircle } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
@@ -18,6 +18,8 @@ type TimeOffRequest = {
   created_at: string
   updated_at: string
 }
+
+const supabase = createClient()
 
 export function TimeOffRequestsList() {
   const [requests, setRequests] = useState<TimeOffRequest[]>([])

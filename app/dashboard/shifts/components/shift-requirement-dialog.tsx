@@ -1,72 +1,68 @@
 "use client"
 
 import { useState } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { supabase } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase/client"
 import { toast } from "@/components/ui/use-toast"
 import { type ShiftRequirement } from "@/types/shift"
 
 interface ShiftRequirementDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  requirement: ShiftRequirement | null
+  shiftRequirement?: ShiftRequirement
+  onClose: () => void
   onSuccess: () => void
 }
 
 export function ShiftRequirementDialog({
-  open,
-  onOpenChange,
-  requirement,
+  shiftRequirement,
+  onClose,
   onSuccess,
 }: ShiftRequirementDialogProps) {
-  const [formData, setFormData] = useState({
-    day_of_week: requirement?.day_of_week.toString() || "0",
-    start_time: requirement?.start_time || "09:00",
-    end_time: requirement?.end_time || "17:00",
-    required_count: requirement?.required_count.toString() || "1",
-  })
+  const [name, setName] = useState(shiftRequirement?.name || "")
+  const [dayOfWeek, setDayOfWeek] = useState<string>(
+    shiftRequirement?.day_of_week.toString() || "0"
+  )
+  const [startTime, setStartTime] = useState(shiftRequirement?.start_time || "09:00")
+  const [endTime, setEndTime] = useState(shiftRequirement?.end_time || "17:00")
+  const [requiredCount, setRequiredCount] = useState(
+    shiftRequirement?.required_count.toString() || "1"
+  )
+  const [isLoading, setIsLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setIsLoading(true)
 
     try {
+      const supabase = createClient()
       const data = {
-        day_of_week: parseInt(formData.day_of_week),
-        start_time: formData.start_time,
-        end_time: formData.end_time,
-        required_count: parseInt(formData.required_count),
+        name,
+        day_of_week: parseInt(dayOfWeek),
+        start_time: startTime,
+        end_time: endTime,
+        required_count: parseInt(requiredCount),
       }
 
-      if (requirement) {
+      if (shiftRequirement) {
         const { error } = await supabase
           .from("shift_requirements")
           .update(data)
-          .eq("id", requirement.id)
+          .eq("id", shiftRequirement.id)
 
         if (error) throw error
-
-        toast({
-          title: "Success",
-          description: "Shift requirement updated successfully.",
-        })
       } else {
-        const { error } = await supabase
-          .from("shift_requirements")
-          .insert([data])
-
+        const { error } = await supabase.from("shift_requirements").insert([data])
         if (error) throw error
-
-        toast({
-          title: "Success",
-          description: "Shift requirement created successfully.",
-        })
       }
 
+      toast({
+        title: "Success",
+        description: `Shift requirement ${shiftRequirement ? "updated" : "created"} successfully.`,
+      })
       onSuccess()
+      onClose()
     } catch (error) {
       console.error("Error saving shift requirement:", error)
       toast({
@@ -74,88 +70,78 @@ export function ShiftRequirementDialog({
         title: "Error",
         description: "Failed to save shift requirement. Please try again.",
       })
+    } finally {
+      setIsLoading(false)
     }
   }
 
-  const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
-
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>
-            {requirement ? "Edit Shift Requirement" : "Add Shift Requirement"}
-          </DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="day">Day of Week</Label>
-              <Select
-                value={formData.day_of_week}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, day_of_week: value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select day" />
-                </SelectTrigger>
-                <SelectContent>
-                  {days.map((day, index) => (
-                    <SelectItem key={day} value={index.toString()}>
-                      {day}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="startTime">Start Time</Label>
-                <Input
-                  id="startTime"
-                  type="time"
-                  value={formData.start_time}
-                  onChange={(e) =>
-                    setFormData({ ...formData, start_time: e.target.value })
-                  }
-                />
-              </div>
-              <div>
-                <Label htmlFor="endTime">End Time</Label>
-                <Input
-                  id="endTime"
-                  type="time"
-                  value={formData.end_time}
-                  onChange={(e) =>
-                    setFormData({ ...formData, end_time: e.target.value })
-                  }
-                />
-              </div>
-            </div>
-            <div>
-              <Label htmlFor="count">Required Employees</Label>
-              <Input
-                id="count"
-                type="number"
-                min="1"
-                value={formData.required_count}
-                onChange={(e) =>
-                  setFormData({ ...formData, required_count: e.target.value })
-                }
-              />
-            </div>
-          </div>
-          <div className="flex justify-end space-x-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit">
-              {requirement ? "Update" : "Create"}
-            </Button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="name">Name</Label>
+        <Input
+          id="name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="dayOfWeek">Day of Week</Label>
+        <Select value={dayOfWeek} onValueChange={setDayOfWeek}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="0">Sunday</SelectItem>
+            <SelectItem value="1">Monday</SelectItem>
+            <SelectItem value="2">Tuesday</SelectItem>
+            <SelectItem value="3">Wednesday</SelectItem>
+            <SelectItem value="4">Thursday</SelectItem>
+            <SelectItem value="5">Friday</SelectItem>
+            <SelectItem value="6">Saturday</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="startTime">Start Time</Label>
+        <Input
+          id="startTime"
+          type="time"
+          value={startTime}
+          onChange={(e) => setStartTime(e.target.value)}
+          required
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="endTime">End Time</Label>
+        <Input
+          id="endTime"
+          type="time"
+          value={endTime}
+          onChange={(e) => setEndTime(e.target.value)}
+          required
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="requiredCount">Required Count</Label>
+        <Input
+          id="requiredCount"
+          type="number"
+          min="1"
+          value={requiredCount}
+          onChange={(e) => setRequiredCount(e.target.value)}
+          required
+        />
+      </div>
+      <div className="flex justify-end space-x-2">
+        <Button type="button" variant="outline" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button type="submit" disabled={isLoading}>
+          {isLoading ? "Saving..." : shiftRequirement ? "Update" : "Create"}
+        </Button>
+      </div>
+    </form>
   )
 } 

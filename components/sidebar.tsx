@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useRouter, usePathname } from "next/navigation"
 import { Calendar, Users, Settings, LogOut, Clock, Clock4, Activity } from 'lucide-react'
-import { supabase } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -24,6 +24,7 @@ export function Sidebar() {
 
   const handleLogout = async () => {
     try {
+      const supabase = createClient()
       const { error } = await supabase.auth.signOut()
       if (error) {
         console.error("Error signing out:", error)

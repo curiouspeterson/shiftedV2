@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import {
   AlertDialog,
@@ -16,73 +16,74 @@ import {
 } from "@/components/ui/alert-dialog"
 import { toast } from "@/components/ui/use-toast"
 
-export function EmployeeCard({ employee }: { employee: any }) {
-  const [isLoading, setIsLoading] = useState(false)
+interface EmployeeCardProps {
+  id: string
+  name: string
+  email: string
+  role: string
+  onDelete: () => void
+}
 
-  const handleDeactivate = async () => {
+export function EmployeeCard({ id, name, email, role, onDelete }: EmployeeCardProps) {
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  const handleDelete = async () => {
     try {
-      setIsLoading(true)
-      
-      // Update the profiles table
-      const { error: profileError } = await supabase
+      setIsDeleting(true)
+      const supabase = createClient()
+      const { error } = await supabase
         .from('profiles')
-        .update({ status: 'inactive' })
-        .eq('id', employee.id)
+        .delete()
+        .eq('id', id)
 
-      if (profileError) throw profileError
+      if (error) throw error
 
       toast({
-        title: "Employee deactivated",
-        description: "The employee has been successfully deactivated.",
+        title: "Success",
+        description: "Employee deleted successfully",
       })
-      
-      // Optionally refresh the page or update the UI
-      window.location.reload()
+      onDelete()
     } catch (error) {
-      console.error('Error deactivating employee:', error)
+      console.error('Error deleting employee:', error)
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to deactivate employee. Please try again.",
+        description: "Failed to delete employee",
       })
     } finally {
-      setIsLoading(false)
+      setIsDeleting(false)
     }
   }
 
   return (
-    <div className="rounded-lg border p-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold">{employee.full_name}</h3>
-          <p className="text-sm text-gray-500">{employee.role}</p>
-        </div>
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button variant="destructive">
-              Deactivate Employee
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This will deactivate the user's profile. They will no longer be able to
-                access the system, but their data will be preserved.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleDeactivate}
-                disabled={isLoading}
-              >
-                {isLoading ? "Deactivating..." : "Deactivate"}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+    <div className="flex items-center justify-between p-4 border rounded-lg">
+      <div>
+        <h3 className="font-medium">{name}</h3>
+        <p className="text-sm text-gray-500">{email}</p>
+        <p className="text-sm text-gray-500 capitalize">{role}</p>
       </div>
+      <AlertDialog>
+        <AlertDialogTrigger asChild>
+          <Button variant="destructive" disabled={isDeleting}>
+            Delete
+          </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the employee
+              and all associated data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete}>
+              {isDeleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 } 

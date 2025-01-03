@@ -6,12 +6,18 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import { supabase } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase/client"
 import { toast } from "@/components/ui/use-toast"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle } from 'lucide-react'
 
-export function TimeOffRequestForm() {
+interface TimeOffRequestFormProps {
+  onSubmit?: () => void
+}
+
+const supabase = createClient()
+
+export function TimeOffRequestForm({ onSubmit }: TimeOffRequestFormProps) {
   const [startDate, setStartDate] = useState<Date | undefined>()
   const [endDate, setEndDate] = useState<Date | undefined>()
   const [reason, setReason] = useState("")
@@ -67,6 +73,9 @@ export function TimeOffRequestForm() {
       setStartDate(undefined)
       setEndDate(undefined)
       setReason("")
+      
+      // Call onSubmit callback if provided
+      onSubmit?.()
     } catch (error) {
       console.error('Error submitting time off request:', error)
       setError("Failed to submit time off request. Please try again later.")

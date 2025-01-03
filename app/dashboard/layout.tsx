@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { supabase } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase/client"
 import { Sidebar } from "@/components/sidebar"
 import { Loader2 } from 'lucide-react'
 
@@ -18,6 +18,7 @@ export default function DashboardLayout({
   useEffect(() => {
     const checkUser = async () => {
       try {
+        const supabase = createClient()
         const { data: { user }, error } = await supabase.auth.getUser()
         
         if (error) {
@@ -39,6 +40,7 @@ export default function DashboardLayout({
       }
     }
 
+    const supabase = createClient()
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!session) {

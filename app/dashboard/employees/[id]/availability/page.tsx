@@ -1,10 +1,10 @@
 import { EmployeeAvailabilityManager } from "@/components/employee-availability-manager"
 
-export default function EmployeeAvailabilityPage({ params }: { params: { id: string } }) {
+export default function EmployeeAvailabilityPage() {
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Manage Employee Availability</h1>
-      <EmployeeAvailabilityManager employeeId={params.id} />
+    <div className="container mx-auto py-10">
+      <h1 className="text-3xl font-bold mb-8">Manage Employee Availability</h1>
+      <EmployeeAvailabilityManager />
     </div>
   )
 }
