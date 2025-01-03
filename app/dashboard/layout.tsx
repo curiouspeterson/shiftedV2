@@ -12,23 +12,48 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const [isLoading, setIsLoading] = useState(true)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
     const checkUser = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser()
+        const { data: { user }, error } = await supabase.auth.getUser()
+        
+        if (error) {
+          console.error("Error checking user:", error)
+          router.push("/login")
+          return
+        }
+
         if (!user) {
           router.push("/login")
-        } else {
-          setIsLoading(false)
+          return
         }
+
+        setIsAuthenticated(true)
+        setIsLoading(false)
       } catch (error) {
         console.error("Error checking user:", error)
         router.push("/login")
       }
     }
+
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        router.push("/login")
+        return
+      }
+      setIsAuthenticated(true)
+      setIsLoading(false)
+    })
+
     checkUser()
+
+    return () => {
+      subscription.unsubscribe()
+    }
   }, [router])
 
   if (isLoading) {
@@ -37,6 +62,10 @@ export default function DashboardLayout({
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     )
+  }
+
+  if (!isAuthenticated) {
+    return null
   }
 
   return (

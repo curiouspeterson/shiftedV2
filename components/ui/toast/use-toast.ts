@@ -30,7 +30,10 @@ const toastStore = {
   listeners: new Set<() => void>(),
   subscribe(listener: () => void) {
     this.listeners.add(listener)
-    return () => this.listeners.delete(listener)
+    return () => {
+      this.listeners.delete(listener)
+      return undefined
+    }
   },
   dispatch(action: ActionType) {
     switch (action.type) {
@@ -72,7 +75,10 @@ export function useToast() {
   const [state, setState] = React.useState<ToastState>(toastStore.state)
 
   React.useEffect(() => {
-    return toastStore.subscribe(() => setState({ ...toastStore.state }))
+    const unsubscribe = toastStore.subscribe(() => setState({ ...toastStore.state }))
+    return () => {
+      unsubscribe()
+    }
   }, [])
 
   return {

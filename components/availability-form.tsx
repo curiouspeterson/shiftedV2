@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,29 +10,46 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 const daysOfWeek = [
   "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"
-]
+];
 
 export function AvailabilityForm({ onAvailabilityAdded }) {
   const [dayOfWeek, setDayOfWeek] = useState("")
   const [startTime, setStartTime] = useState("")
   const [endTime, setEndTime] = useState("")
+  const [userId, setUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserId(user.id);
+      }
+    };
+
+    fetchUser();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
+    if (!userId) {
+      console.error("User ID not found");
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from('employee_availability')
         .insert([
-          { 
-            user_id: (await supabase.auth.getUser()).data.user?.id,
+          {
+            user_id: userId,
             day_of_week: parseInt(dayOfWeek),
             start_time: startTime,
             end_time: endTime
           }
-        ])
-      
-      if (error) throw error
-      
+        ]);
+
+      if (error) throw error;
+
       setDayOfWeek("")
       setStartTime("")
       setEndTime("")
@@ -88,4 +105,3 @@ export function AvailabilityForm({ onAvailabilityAdded }) {
     </Card>
   )
 }
-
