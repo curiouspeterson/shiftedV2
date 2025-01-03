@@ -1,8 +1,11 @@
+"use client"
+
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { Calendar, Users, Settings, LogOut, Clock, Clock4, Activity } from 'lucide-react'
 import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 
 const navItems = [
   { href: "/dashboard", icon: Calendar, label: "Dashboard" },
@@ -17,10 +20,19 @@ const navItems = [
 
 export function Sidebar() {
   const router = useRouter()
+  const pathname = usePathname()
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.push("/login")
+    try {
+      const { error } = await supabase.auth.signOut()
+      if (error) {
+        console.error("Error signing out:", error)
+        return
+      }
+      router.push("/login")
+    } catch (error) {
+      console.error("Error signing out:", error)
+    }
   }
 
   return (
@@ -29,20 +41,30 @@ export function Sidebar() {
         <h1 className="text-2xl font-bold text-gray-800">Schedule Manager</h1>
       </div>
       <ul className="space-y-2 p-4 flex-grow">
-        {navItems.map((item) => (
-          <li key={item.href}>
-            <Link
-              href={item.href}
-              className="flex items-center space-x-2 rounded-md p-2 text-gray-600 hover:bg-gray-100"
-            >
-              <item.icon className="h-5 w-5" />
-              <span>{item.label}</span>
-            </Link>
-          </li>
-        ))}
+        {navItems.map((item) => {
+          const isActive = pathname === item.href
+          return (
+            <li key={item.href}>
+              <Link
+                href={item.href}
+                className={cn(
+                  "flex items-center space-x-2 rounded-md p-2 text-gray-600 hover:bg-gray-100",
+                  isActive && "bg-gray-100 text-gray-900 font-medium"
+                )}
+              >
+                <item.icon className="h-5 w-5" />
+                <span>{item.label}</span>
+              </Link>
+            </li>
+          )
+        })}
       </ul>
       <div className="p-4">
-        <Button onClick={handleLogout} className="w-full flex items-center justify-center">
+        <Button 
+          onClick={handleLogout} 
+          className="w-full flex items-center justify-center"
+          variant="destructive"
+        >
           <LogOut className="mr-2 h-4 w-4" />
           Logout
         </Button>

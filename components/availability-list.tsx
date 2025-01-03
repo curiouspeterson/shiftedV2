@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 
 const daysOfWeek = [
   "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"
-]
+];
 
 export function AvailabilityList({ availabilities, onAvailabilityUpdated, onAvailabilityDeleted }) {
   const [editingId, setEditingId] = useState(null)
@@ -110,4 +110,3 @@ export function AvailabilityList({ availabilities, onAvailabilityUpdated, onAvai
     </Card>
   )
 }
-
