@@ -59,17 +59,19 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
 
     try {
       const supabase = createClient()
+      const data = {
+        email,
+        full_name: fullName,
+        role,
+        weekly_hour_limit: parseInt(weeklyHourLimit),
+        updated_at: new Date().toISOString()
+      }
 
       if (employee) {
         // Update existing employee
         const { error } = await supabase
           .from('profiles')
-          .update({
-            email,
-            full_name: fullName,
-            role,
-            weekly_hour_limit: parseInt(weeklyHourLimit),
-          })
+          .update(data)
           .eq('id', employee.id)
 
         if (error) throw error

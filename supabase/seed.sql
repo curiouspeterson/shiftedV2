@@ -40,11 +40,4 @@ VALUES
   ('Evening Shift', 3, '13:00:00', '21:00:00', 2),
   ('Evening Shift', 4, '13:00:00', '21:00:00', 2),
   ('Evening Shift', 5, '13:00:00', '21:00:00', 1),
-  ('Evening Shift', 6, '13:00:00', '21:00:00', 1);
-
--- Seed data for system_status
-INSERT INTO public.system_status (component, status, message)
-VALUES
-  ('Authentication', 'operational', 'User authentication system is working normally'),
-  ('Database', 'operational', 'Database connections and queries are functioning properly'),
-  ('API', 'operational', 'API endpoints are responding as expected'); 
+  ('Evening Shift', 6, '13:00:00', '21:00:00', 1); 
