@@ -19,27 +19,47 @@ export async function POST(request: Request) {
 
     const { action, data } = body
 
+    if (action === 'delete') {
+      const { id } = data
+      console.log('Deleting employee:', id)
+
+      // First delete the auth user
+      const { error: authError } = await supabase.auth.admin.deleteUser(id)
+
+      if (authError) {
+        console.error('Auth deletion error:', authError)
+        return NextResponse.json({ error: authError.message }, { status: 400 })
+      }
+
+      // The profile will be automatically deleted due to the cascade delete
+      console.log('Employee deleted successfully')
+      return NextResponse.json({ success: true })
+    }
+
     if (action === 'update') {
       const { id, ...updateData } = data
       console.log('Updating employee:', id, 'with data:', updateData)
 
-      // Update using raw SQL
-      const { data: result, error: updateError } = await supabase.rpc('update_profile_raw', {
-        p_id: id,
-        p_full_name: updateData.full_name,
-        p_role: updateData.role,
-        p_email: updateData.email
-      })
+      // First do the update
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({
+          full_name: updateData.full_name,
+          role: updateData.role,
+          email: updateData.email,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
 
       if (updateError) {
         console.error('Update error:', updateError)
         return NextResponse.json({ error: updateError.message }, { status: 400 })
       }
 
-      // Then fetch the updated profile to verify
+      // Then fetch the updated profile
       const { data: profile, error: fetchError } = await supabase
         .from('profiles')
-        .select()
+        .select('*')
         .eq('id', id)
         .single()
 
