@@ -9,21 +9,19 @@ export interface Availability {
 
 export interface Employee {
   id: string
-  full_name: string
-  email: string
-  role: string
-  weekly_hour_limit: number
+  full_name: string | null
+  email: string | null
+  role: 'employee' | 'manager'
   is_active: boolean
-  created_at: string
-  updated_at: string
-  availability: Availability[]
+  created_at?: string
+  updated_at?: string
+  availability?: Availability[]
 }
 
 export interface EmployeeFormData {
   full_name: string
   email: string
   role: string
-  weekly_hour_limit: number
   availability: {
     day_of_week: number
     start_time: string

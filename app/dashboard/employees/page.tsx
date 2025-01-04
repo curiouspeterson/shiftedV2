@@ -1,16 +1,73 @@
-import { Metadata } from "next"
-import { EmployeesList } from "./components/employees-list"
+"use client"
 
-export const metadata: Metadata = {
-  title: "Employees",
-  description: "Manage employee information and availability",
-}
+import { useEffect, useState } from "react"
+import { EmployeesList } from "./components/employees-list"
+import { testConnection } from "@/lib/supabase/test-connection"
+import { createClient } from "@/lib/supabase/client"
+import { useRouter } from "next/navigation"
 
 export default function EmployeesPage() {
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
+
+  useEffect(() => {
+    async function checkAuth() {
+      try {
+        console.log('Checking auth...')
+        const supabase = createClient()
+        const { data: { session } } = await supabase.auth.getSession()
+
+        if (!session) {
+          console.log('No session found, redirecting to login')
+          router.push('/login')
+          return
+        }
+
+        console.log('Session found:', {
+          userId: session.user.id,
+          email: session.user.email
+        })
+
+        const connectionResult = await testConnection()
+        console.log('Connection test result:', connectionResult)
+        
+        if (!connectionResult) {
+          setError('Failed to connect to database')
+        }
+      } catch (err) {
+        console.error('Error in auth check:', err)
+        setError('Unexpected error occurred')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    checkAuth()
+  }, [router])
+
+  if (isLoading) {
+    return <div>Loading...</div>
+  }
+
+  if (error) {
+    return (
+      <div className="text-red-500">
+        Error: {error}
+        <button 
+          onClick={() => window.location.reload()}
+          className="ml-2 text-blue-500 hover:underline"
+        >
+          Retry
+        </button>
+      </div>
+    )
+  }
+
   return (
-    <div className="flex-1 space-y-4 p-8 pt-6">
-      <div className="flex items-center justify-between space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight">Employees</h2>
+    <div className="container mx-auto py-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Employees</h1>
       </div>
       <EmployeesList />
     </div>

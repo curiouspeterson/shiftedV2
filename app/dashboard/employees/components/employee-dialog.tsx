@@ -30,72 +30,73 @@ interface EmployeeDialogProps {
   onSuccess: () => void
 }
 
-type EmployeeRole = "employee" | "manager"
-
 export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: EmployeeDialogProps) {
   const [isLoading, setIsLoading] = React.useState(false)
   const [email, setEmail] = React.useState(employee?.email || "")
   const [fullName, setFullName] = React.useState(employee?.full_name || "")
-  const [role, setRole] = React.useState<EmployeeRole>(employee?.role as EmployeeRole || "employee")
-  const [weeklyHourLimit, setWeeklyHourLimit] = React.useState(employee?.weekly_hour_limit?.toString() || "40")
+  const [role, setRole] = React.useState<"employee" | "manager">(employee?.role || "employee")
 
-  React.useEffect(() => {
-    if (employee) {
-      setEmail(employee.email)
-      setFullName(employee.full_name)
-      setRole(employee.role as EmployeeRole)
-      setWeeklyHourLimit(employee.weekly_hour_limit?.toString() || "40")
-    } else {
-      setEmail("")
-      setFullName("")
-      setRole("employee")
-      setWeeklyHourLimit("40")
-    }
-  }, [employee])
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
     try {
-      const response = await fetch('/api/employees/route', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: employee ? 'update' : 'create',
+      setIsLoading(true)
+      const supabase = createClient()
+
+      // First create the auth user
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password: 'tempPassword123!', // You should generate a random password or handle this better
+        options: {
           data: {
-            id: employee?.id,
-            email,
             full_name: fullName,
-            role,
-            weekly_hour_limit: parseInt(weeklyHourLimit),
-          }
-        })
+            role: role,
+          },
+        },
       })
 
-      if (!response.ok) {
-        const error = await response.json()
-        console.error('Server response:', error)
-        throw new Error(error.message || 'Failed to save employee')
+      if (authError) {
+        throw authError
       }
 
-      const result = await response.json()
-      console.log('Operation successful:', result)
+      if (!authData.user) {
+        throw new Error('No user returned from auth signup')
+      }
+
+      // Then create the profile using the auth user's ID
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert([
+          {
+            id: authData.user.id, // Use the auth user's ID
+            full_name: fullName,
+            email: email,
+            role: role,
+            is_active: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          },
+        ])
+
+      if (profileError) {
+        console.error('Error creating profile:', profileError)
+        // Try to clean up the auth user if profile creation fails
+        await supabase.auth.admin.deleteUser(authData.user.id)
+        throw profileError
+      }
 
       toast({
         title: "Success",
-        description: `Employee ${employee ? 'updated' : 'created'} successfully`,
+        description: "Employee created successfully. They will receive an email to set their password.",
       })
+      
       onSuccess()
       onOpenChange(false)
-    } catch (error) {
-      console.error('Error saving employee:', error)
+    } catch (err) {
+      console.error('Error creating employee:', err)
       toast({
         variant: "destructive",
         title: "Error",
-        description: error instanceof Error ? error.message : `Failed to ${employee ? 'update' : 'create'} employee`,
+        description: err instanceof Error ? err.message : "Failed to create employee",
       })
     } finally {
       setIsLoading(false)
@@ -108,7 +109,7 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
         <DialogHeader>
           <DialogTitle>{employee ? 'Edit' : 'Add'} Employee</DialogTitle>
           <DialogDescription>
-            {employee ? 'Update employee details' : 'Add a new employee to the system'}
+            {employee ? 'Update employee details' : 'Add a new employee to the system. They will receive an email to set their password.'}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
@@ -121,7 +122,6 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                disabled={!!employee}
               />
             </div>
             <div className="space-y-2">
@@ -135,7 +135,7 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
             </div>
             <div className="space-y-2">
               <Label htmlFor="role">Role</Label>
-              <Select value={role} onValueChange={(value: EmployeeRole) => setRole(value)}>
+              <Select value={role} onValueChange={(value: "employee" | "manager") => setRole(value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select a role" />
                 </SelectTrigger>
@@ -145,25 +145,13 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="weeklyHourLimit">Weekly Hour Limit</Label>
-              <Input
-                id="weeklyHourLimit"
-                type="number"
-                min="0"
-                max="168"
-                value={weeklyHourLimit}
-                onChange={(e) => setWeeklyHourLimit(e.target.value)}
-                required
-              />
-            </div>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button type="submit" disabled={isLoading}>
-              {isLoading ? 'Saving...' : employee ? 'Update' : 'Create'}
+              {isLoading ? 'Creating...' : 'Create Employee'}
             </Button>
           </DialogFooter>
         </form>

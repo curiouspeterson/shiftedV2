@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "@/components/ui/use-toast"
-import { type ShiftRequirement } from "@/types/shift"
+import { type ShiftRequirement } from "@/types/schedule"
 
 interface ShiftRequirementDialogProps {
   shiftRequirement?: ShiftRequirement

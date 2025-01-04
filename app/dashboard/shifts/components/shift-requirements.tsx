@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "@/components/ui/use-toast"
-import { type ShiftRequirement } from "@/types/shift"
+import { type ShiftRequirement } from "@/types/schedule"
 import { ShiftRequirementDialog } from "./shift-requirement-dialog"
 
 const DAYS_OF_WEEK = [

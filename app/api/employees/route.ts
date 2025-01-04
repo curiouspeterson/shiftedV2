@@ -4,7 +4,12 @@ import { NextResponse } from 'next/server'
 // Create a Supabase client with the service role key
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  {
+    db: {
+      schema: 'public'
+    }
+  }
 )
 
 export async function POST(request: Request) {
@@ -14,37 +19,62 @@ export async function POST(request: Request) {
 
     const { action, data } = body
 
-    if (action === 'update') {
-      const { id, weekly_hour_limit, ...rest } = data
-      console.log('Updating employee:', id, 'with data:', { weekly_hour_limit, ...rest })
+    if (action === 'delete') {
+      const { id } = data
+      console.log('Deleting employee:', id)
 
-      const { data: updatedProfile, error } = await supabase
-        .from('profiles')
-        .update({ 
-          weekly_hour_limit,
-          updated_at: new Date().toISOString(),
-          ...rest 
-        })
-        .eq('id', id)
-        .select()
-        .single()
+      // First delete the auth user
+      const { error: authError } = await supabase.auth.admin.deleteUser(id)
 
-      if (error) {
-        console.error('Update error:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint
-        })
-        return NextResponse.json({ error: error.message, details: error.details }, { status: 400 })
+      if (authError) {
+        console.error('Auth deletion error:', authError)
+        return NextResponse.json({ error: authError.message }, { status: 400 })
       }
 
-      console.log('Update successful:', updatedProfile)
-      return NextResponse.json(updatedProfile)
+      // The profile will be automatically deleted due to the cascade delete
+      console.log('Employee deleted successfully')
+      return NextResponse.json({ success: true })
+    }
+
+    if (action === 'update') {
+      const { id, ...updateData } = data
+      console.log('Updating employee:', id, 'with data:', updateData)
+
+      // First do the update
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({
+          full_name: updateData.full_name,
+          role: updateData.role,
+          email: updateData.email,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+
+      if (updateError) {
+        console.error('Update error:', updateError)
+        return NextResponse.json({ error: updateError.message }, { status: 400 })
+      }
+
+      // Then fetch the updated profile
+      const { data: profile, error: fetchError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', id)
+        .single()
+
+      if (fetchError) {
+        console.error('Fetch error:', fetchError)
+        return NextResponse.json({ error: 'Failed to fetch updated profile' }, { status: 500 })
+      }
+
+      console.log('Update successful:', profile)
+      return NextResponse.json(profile)
     }
 
     if (action === 'create') {
-      const { email, full_name, role, weekly_hour_limit } = data
-      console.log('Creating employee:', { email, full_name, role, weekly_hour_limit })
+      const { email, full_name, role } = data
+      console.log('Creating employee:', { email, full_name, role })
 
       // Create user with auth
       const { data: userData, error: userError } = await supabase.auth.admin.createUser({
@@ -53,8 +83,7 @@ export async function POST(request: Request) {
         email_confirm: true,
         user_metadata: {
           full_name,
-          role,
-          weekly_hour_limit,
+          role
         }
       })
 
@@ -66,8 +95,20 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: userError.message }, { status: 400 })
       }
 
-      console.log('User creation successful:', userData)
-      return NextResponse.json(userData)
+      // Fetch the created profile
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select()
+        .eq('id', userData.user.id)
+        .single()
+
+      if (profileError) {
+        console.error('Profile fetch error:', profileError)
+        return NextResponse.json({ error: 'Failed to fetch created profile' }, { status: 500 })
+      }
+
+      console.log('User creation successful:', profile)
+      return NextResponse.json(profile)
     }
 
     console.error('Invalid action:', action)
