@@ -1,26 +1,25 @@
-"use client"
+// This should be a server component
+// Remove "use client" if it's present
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import Link from "next/link"
+import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
 
-export default function VerifyPage() {
-  return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Check your email</CardTitle>
-          <CardDescription>
-            We've sent you a verification link. Please check your email to verify your account.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center text-sm">
-            <Link href="/login" className="text-primary hover:underline">
-              Return to login
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
+/**
+ * Handles email verification by extracting the session from the URL.
+ * @param searchParams - URLSearchParams containing the verification code.
+ * @returns JSX element indicating the verification status.
+ */
+export default async function VerifyPage({ searchParams }: { searchParams: URLSearchParams }) {
+  const supabase = createServerSupabaseClient()
+  const { data: { session }, error } = await supabase.auth.getSession()
+
+  if (error) {
+    return <div>Error verifying session: {error.message}</div>
+  }
+
+  if (session) {
+    redirect('/dashboard')
+  }
+
+  return <div>Verifying session...</div>
 } 

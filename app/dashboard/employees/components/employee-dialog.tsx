@@ -63,19 +63,17 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
       }
 
       // Then create the profile using the auth user's ID
+      const newProfile: Partial<Employee> = {
+        id: authData.user.id,
+        full_name: fullName,
+        email: email,
+        role: role,
+        is_active: true,
+      }
+
       const { error: profileError } = await supabase
         .from('profiles')
-        .insert([
-          {
-            id: authData.user.id, // Use the auth user's ID
-            full_name: fullName,
-            email: email,
-            role: role,
-            is_active: true,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          },
-        ])
+        .insert([newProfile])
 
       if (profileError) {
         console.error('Error creating profile:', profileError)

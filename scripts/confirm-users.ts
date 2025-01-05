@@ -1,78 +1,38 @@
-import { config } from 'dotenv'
 import { createClient } from '@supabase/supabase-js'
+import { env } from '@/lib/env'
 
-// Load environment variables from .env.local
-config({ path: '.env.local' })
-
-// Create a Supabase client with the service role key
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  env.NEXT_PUBLIC_SUPABASE_URL,
+  env.SUPABASE_SERVICE_ROLE_KEY,
   {
-    db: {
-      schema: 'public'
-    }
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
   }
 )
 
-async function createAndConfirmUsers() {
-  const users = [
-    { email: 'frank_new@test.com', full_name: 'Frank Tucker', role: 'employee' },
-    { email: 'test_new@test.com', full_name: 'Test User', role: 'employee' },
-    { email: 'adamjpeterson@gmail.com', full_name: 'Adam Peterson', role: 'employee' }
-  ]
-
-  console.log('Attempting to create and confirm users:', users.map(u => u.email))
-
+async function confirmUsers() {
   try {
-    for (const user of users) {
-      // Create the user with admin API
-      const { data: userData, error: createError } = await supabase.auth.admin.createUser({
-        email: user.email,
-        password: 'temppass123',
-        email_confirm: true,
-        user_metadata: {
-          full_name: user.full_name,
-          role: user.role
+    const { data: users, error } = await supabase.auth.admin.listUsers()
+    if (error) throw error
+
+    for (const user of users.users) {
+      if (!user.email_confirmed_at) {
+        const { error: confirmError } = await supabase.auth.admin.updateUserById(
+          user.id,
+          { email_confirm: true }
+        )
+        if (confirmError) {
+          console.error(`Failed to confirm user ${user.id}:`, confirmError)
+          continue
         }
-      })
-
-      if (createError) {
-        console.error(`Failed to create user ${user.email}:`, createError)
-        continue
-      }
-
-      console.log(`Successfully created user ${user.email}`)
-
-      // Create or update the profile
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: userData.user.id,
-          full_name: user.full_name,
-          email: user.email,
-          role: user.role,
-          is_active: true
-        })
-
-      if (profileError) {
-        console.error(`Failed to create profile for ${user.email}:`, profileError)
-      } else {
-        console.log(`Successfully created profile for ${user.email}`)
+        console.log(`Confirmed user ${user.id}`)
       }
     }
   } catch (error) {
-    console.error('Error processing users:', error)
+    console.error('Error confirming users:', error)
   }
 }
 
-// Run the script
-createAndConfirmUsers()
-  .then(() => {
-    console.log('Finished creation and confirmation attempts')
-    process.exit(0)
-  })
-  .catch(error => {
-    console.error('Script failed:', error)
-    process.exit(1)
-  }) 
+confirmUsers() 

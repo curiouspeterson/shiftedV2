@@ -1,27 +1,16 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { parseISO, startOfWeek, addDays } from 'date-fns'
+import { Database } from '@/types/supabase'
 
-interface ShiftRequirement {
-  id: string
-  name: string
-  day_of_week: number
-  start_time: string
-  end_time: string
-  required_count: number
-}
+type DbProfile = Database['public']['Tables']['profiles']['Row']
+type DbEmployeeAvailability = Database['public']['Tables']['employee_availability']['Row']
+type DbShiftRequirement = Database['public']['Tables']['shift_requirements']['Row']
+type DbShiftAssignment = Database['public']['Tables']['shift_assignments']['Insert']
 
-interface Employee {
-  id: string
-  full_name: string
+interface ProfileWithAvailability extends DbProfile {
+  availability: DbEmployeeAvailability[]
   weekly_hour_limit: number
-  availability: Availability[]
-}
-
-interface Availability {
-  day_of_week: number
-  start_time: string
-  end_time: string
 }
 
 export async function POST(req: Request) {
@@ -53,8 +42,9 @@ export async function POST(req: Request) {
       .select('*')
       .order('day_of_week', { ascending: true })
       .order('start_time', { ascending: true })
+      .returns<DbShiftRequirement[]>()
 
-    if (shiftError) {
+    if (shiftError || !shiftRequirements) {
       throw new Error('Error fetching shift requirements')
     }
 
@@ -64,29 +54,36 @@ export async function POST(req: Request) {
       .select(`
         id,
         full_name,
+        email,
+        role,
+        is_active,
+        created_at,
+        updated_at,
         weekly_hour_limit,
         availability:employee_availability (
+          id,
+          profile_id,
           day_of_week,
           start_time,
-          end_time
+          end_time,
+          created_at
         )
       `)
       .eq('is_active', true)
 
-    if (employeesError) {
+    if (employeesError || !employeesData) {
       throw new Error('Error fetching employees')
     }
 
-    const employees: Employee[] = employeesData || []
+    // Transform the Supabase response into our Employee type
+    const employees: ProfileWithAvailability[] = employeesData.map((data: any) => ({
+      ...data,
+      weekly_hour_limit: data.weekly_hour_limit || 40, // Default to 40 hours if not set
+      availability: data.availability || [],
+    }))
 
     const schedule: {
-      [date: string]: {
-        shift_requirement_id: string
-        profile_id: string
-        date: string
-        start_time: string
-        end_time: string
-      }[]
+      [date: string]: DbShiftAssignment[]
     } = {}
 
     // Helper function to calculate hours between two times
@@ -140,13 +137,14 @@ export async function POST(req: Request) {
             employeeHours[employee.id] + shiftHours <=
             employee.weekly_hour_limit
           ) {
-            schedule[dateStr].push({
+            const assignment: DbShiftAssignment = {
               shift_requirement_id: shift.id,
               profile_id: employee.id,
               date: dateStr,
               start_time: shift.start_time,
               end_time: shift.end_time,
-            })
+            }
+            schedule[dateStr].push(assignment)
             employeeHours[employee.id] += shiftHours
             assignedCount++
           }
@@ -157,29 +155,16 @@ export async function POST(req: Request) {
           console.warn(
             `Understaffed shift on ${dateStr} for shift_requirement_id ${shift.id}`
           )
-          // Optionally, log this to a monitoring system or notify managers
         }
       }
     }
 
     // Insert the generated schedule into shift_assignments
-    const assignmentsToInsert: {
-      profile_id: string
-      shift_requirement_id: string
-      date: string
-      start_time: string
-      end_time: string
-    }[] = []
-
-    for (const date in schedule) {
-      for (const assignment of schedule[date]) {
-        assignmentsToInsert.push(assignment)
-      }
-    }
+    const assignmentsToInsert = Object.values(schedule).flat()
 
     const { error: insertError } = await supabase
       .from('shift_assignments')
-      .insert(assignmentsToInsert)
+      .insert(assignmentsToInsert as any)
 
     if (insertError) {
       throw new Error('Error inserting shift assignments')

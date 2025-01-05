@@ -24,14 +24,14 @@ export default function SignUpPage() {
     const fullName = formData.get('fullName') as string
 
     try {
-      const { error } = await signUp(email, password, fullName)
-      if (error) {
-        setError(error.message || 'Failed to create account')
+      const data = await signUp(email, password)
+      if (!data.user) {
+        setError('Failed to create account')
       } else {
         router.push('/auth/verify')
       }
     } catch (e) {
-      setError('An unexpected error occurred')
+      setError(e instanceof Error ? e.message : 'An unexpected error occurred')
     } finally {
       setLoading(false)
     }

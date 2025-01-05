@@ -1,80 +1,87 @@
-import { createClient } from '@/lib/supabase/client'
-import { AuthError } from '@supabase/supabase-js'
+import { createBrowserClient } from './supabase/client'
+import { Database } from '@/types/supabase'
+import { NextRequest, NextResponse } from 'next/server'
 
-export async function signUp(email: string, password: string, fullName: string) {
-  try {
-    const supabase = createClient()
-    
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
-        },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
-    })
+// Initialize Supabase client for client-side usage
+export const supabaseClient = createBrowserClient()
 
-    if (error) {
-      console.error('Signup error:', error)
-      return { error }
-    }
+// Client-side authentication helper functions
 
-    if (!data.user) {
-      return { error: new Error('No user returned from signup') }
-    }
+/**
+ * Sign in a user with email and password.
+ * @param email - User's email address.
+ * @param password - User's password.
+ * @returns Signed-in user data.
+ * @throws Error if sign-in fails.
+ */
+export async function signIn(email: string, password: string) {
+  const { error, data } = await supabaseClient.auth.signInWithPassword({
+    email,
+    password,
+  })
 
-    // Create profile record
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .insert([
-        {
-          id: data.user.id,
-          full_name: fullName,
-          email: email,
-          role: 'employee',
-          is_active: true,
-        },
-      ])
+  if (error) {
+    throw new Error(error.message)
+  }
 
-    if (profileError) {
-      console.error('Profile creation error:', profileError)
-      return { error: profileError }
-    }
+  return data
+}
 
-    return { data }
-  } catch (err) {
-    console.error('Unexpected error during signup:', err)
-    return { error: err as Error }
+/**
+ * Sign up a new user with email and password.
+ * @param email - User's email address.
+ * @param password - User's password.
+ * @returns Signed-up user data.
+ * @throws Error if sign-up fails.
+ */
+export async function signUp(email: string, password: string) {
+  const { error, data } = await supabaseClient.auth.signUp({
+    email,
+    password,
+  })
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return data
+}
+
+/**
+ * Sign out the current user.
+ * @throws Error if sign-out fails.
+ */
+export async function signOut() {
+  const { error } = await supabaseClient.auth.signOut()
+  if (error) {
+    throw new Error(error.message)
   }
 }
 
-export async function signIn(email: string, password: string) {
-  try {
-    const supabase = createClient()
-    
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+/**
+ * Higher-order function to protect routes that require manager authentication.
+ * @param handler - The route handler to protect.
+ * @returns Protected route handler.
+ */
+export function withManagerAuth(handler: (req: NextRequest) => Promise<NextResponse>) {
+  return async (req: NextRequest) => {
+    const supabase = createBrowserClient()
+    const { data: { session }, error } = await supabase.auth.getSession()
 
-    if (error) {
-      console.error('Login error:', error)
-      return { error }
+    if (error || !session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Verify the session was created
-    const { data: { session } } = await supabase.auth.getSession()
-    console.log('Session after login:', {
-      hasSession: !!session,
-      user: session?.user,
-      accessToken: session?.access_token ? 'present' : 'missing'
-    })
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', session.user.id)
+      .single()
 
-    return { data }
-  } catch (err) {
-    console.error('Unexpected error during login:', err)
-    return { error: err as Error }
+    if (!profile || profile.role !== 'manager') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    return handler(req)
   }
 } 
