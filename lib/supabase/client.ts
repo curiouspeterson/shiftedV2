@@ -1,26 +1,6 @@
 /**
  * Supabase Client Module
  * 
-<<<<<<< HEAD
- * This module exports functions for creating Supabase clients
- * configured for browser and server environments.
- */
-
-import { createBrowserClient } from '@supabase/ssr'
-
-/**
- * Creates a Supabase client configured for browser usage
- * with session persistence and URL-based session detection for OAuth flows
- */
-export const createClient = () => {
-  return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
-}
-
-export { createBrowserClient } 
-=======
  * This module provides factory functions for creating typed Supabase client instances
  * for browser-side usage. It configures the clients with proper authentication settings
  * and type definitions for the database schema.
@@ -79,4 +59,3 @@ export const createClient = () => {
     },
   })
 } 
->>>>>>> 814f5aa8e56d545825b7fd94a72c02dc721cc589

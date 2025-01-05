@@ -189,14 +189,6 @@ export function ShiftRequirements() {
       </div>
 
       {/* Edit/Add dialog */}
-<<<<<<< HEAD
-      <ShiftRequirementDialog
-        open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
-        shiftRequirement={selectedRequirement || undefined}
-        onSuccess={fetchRequirements}
-      />
-=======
       {isDialogOpen && (
         <ShiftRequirementDialog
           shiftRequirement={selectedRequirement || undefined}
@@ -204,7 +196,6 @@ export function ShiftRequirements() {
           onSuccess={fetchRequirements}
         />
       )}
->>>>>>> 814f5aa8e56d545825b7fd94a72c02dc721cc589
     </div>
   )
 } 

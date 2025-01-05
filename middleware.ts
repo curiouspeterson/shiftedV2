@@ -3,8 +3,6 @@
  * 
  * Handles authentication and routing middleware for the application.
  * Protects dashboard routes and manages Supabase authentication state.
-<<<<<<< HEAD
-=======
  * 
  * Features:
  * - Route protection for dashboard pages
@@ -12,7 +10,6 @@
  * - Cookie management for auth state
  * - Logging for debugging
  * - Error handling
->>>>>>> 814f5aa8e56d545825b7fd94a72c02dc721cc589
  */
 
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
@@ -26,51 +23,15 @@ import { NextResponse, type NextRequest } from 'next/server'
  * @returns NextResponse with appropriate routing/auth handling
  */
 export async function middleware(request: NextRequest) {
-<<<<<<< HEAD
-  try {
-    console.log('Middleware processing request:', request.url)
-
-    // Create a basic response with minimal headers
-    const response = NextResponse.next()
-
-=======
   const response = NextResponse.next()
 
   try {
     // Initialize Supabase client with cookie handling
->>>>>>> 814f5aa8e56d545825b7fd94a72c02dc721cc589
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
-<<<<<<< HEAD
-          get(name: string) {
-            return request.cookies.get(name)?.value
-          },
-          set(name: string, value: string, options: CookieOptions) {
-            // Only set essential auth cookies
-            if (name === 'sb-access-token' || name === 'sb-refresh-token') {
-              response.cookies.set({
-                name,
-                value,
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: 'lax',
-                httpOnly: true,
-                path: '/'
-              })
-            }
-          },
-          remove(name: string, options: CookieOptions) {
-            if (name === 'sb-access-token' || name === 'sb-refresh-token') {
-              response.cookies.set({
-                name,
-                value: '',
-                maxAge: 0,
-                path: '/'
-              })
-            }
-=======
           // Get cookie value from request
           get(name: string) {
             return request.cookies.get(name)?.value
@@ -100,15 +61,20 @@ export async function middleware(request: NextRequest) {
               value: '',
               ...options,
             })
->>>>>>> 814f5aa8e56d545825b7fd94a72c02dc721cc589
           },
         },
       }
     )
 
-<<<<<<< HEAD
-    // Get session without refreshing to avoid unnecessary cookie updates
+    // Check authentication status
     const { data: { session } } = await supabase.auth.getSession()
+    
+    // Log authentication state for debugging
+    console.log('Middleware auth check:', {
+      path: request.nextUrl.pathname,
+      hasSession: !!session,
+      user: session?.user?.email
+    })
 
     const path = request.nextUrl.pathname
 
@@ -130,37 +96,19 @@ export async function middleware(request: NextRequest) {
       if (!session) {
         return NextResponse.redirect(new URL('/login', request.url))
       }
-=======
-    // Check authentication status
-    const { data: { session } } = await supabase.auth.getSession()
-    
-    // Log authentication state for debugging
-    console.log('Middleware auth check:', {
-      path: request.nextUrl.pathname,
-      hasSession: !!session,
-      user: session?.user?.email
-    })
-
-    // Protect dashboard routes - redirect to login if not authenticated
-    if (request.nextUrl.pathname.startsWith('/dashboard')) {
-      if (!session) {
-        return NextResponse.redirect(new URL('/login', request.url))
-      }
-    }
-
-  } catch (e) {
-    // Log any errors that occur during middleware execution
-    console.error('Middleware error:', e)
-  }
->>>>>>> 814f5aa8e56d545825b7fd94a72c02dc721cc589
 
       // Check manager role for protected routes
       if (path.startsWith('/dashboard/shifts')) {
-        const { data: profile } = await supabase
+        const { data: profile, error } = await supabase
           .from('profiles')
           .select('role')
           .eq('id', session.user.id)
           .single()
+
+        if (error) {
+          console.error('Error fetching user profile:', error)
+          return NextResponse.redirect(new URL('/dashboard', request.url))
+        }
 
         if (!profile || profile.role !== 'manager') {
           return NextResponse.redirect(new URL('/dashboard', request.url))
@@ -183,18 +131,14 @@ export async function middleware(request: NextRequest) {
  */
 export const config = {
   matcher: [
-<<<<<<< HEAD
     /*
      * Match all request paths except for the ones starting with:
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - public folder
      * - api routes
+     * - Image file extensions
      */
     '/((?!_next/static|_next/image|favicon.ico|api|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
-=======
-    '/((?!_next/static|_next/image|favicon.ico).*)',
->>>>>>> 814f5aa8e56d545825b7fd94a72c02dc721cc589
   ],
-} 
+}

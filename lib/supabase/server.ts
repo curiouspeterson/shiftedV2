@@ -56,15 +56,6 @@ export function createServerSupabaseClient() {
  * 
  * @returns A typed Supabase admin client with elevated privileges
  */
-<<<<<<< HEAD
-export function createAdminClient(token?: string) {
-  const cookieStore = cookies()
-  
-  const supabase = createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-=======
 export function createAdminClient() {
   const cookieStore = cookies()
 
@@ -78,7 +69,6 @@ export function createAdminClient() {
         // Disable session persistence for admin client
         persistSession: false,
       },
->>>>>>> 814f5aa8e56d545825b7fd94a72c02dc721cc589
       cookies: {
         // Get cookie value by name
         get(name: string) {

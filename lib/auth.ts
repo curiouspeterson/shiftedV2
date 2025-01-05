@@ -1,8 +1,3 @@
-<<<<<<< HEAD
-'use client'
-
-import { createBrowserClient } from './supabase/client'
-=======
 /**
  * Authentication Utility Module
  * 
@@ -15,7 +10,6 @@ import { createBrowserClient } from './supabase/client'
 import { createBrowserClient } from './supabase/client'
 import { Database } from '@/types/supabase'
 import { NextRequest, NextResponse } from 'next/server'
->>>>>>> 814f5aa8e56d545825b7fd94a72c02dc721cc589
 
 /**
  * Supabase Client Instance
@@ -24,14 +18,7 @@ import { NextRequest, NextResponse } from 'next/server'
  * for client-side operations. This ensures we maintain a single
  * connection throughout the application lifecycle.
  */
-<<<<<<< HEAD
-export const supabaseClient = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
-=======
 export const supabaseClient = createBrowserClient()
->>>>>>> 814f5aa8e56d545825b7fd94a72c02dc721cc589
 
 /**
  * Authentication Methods
@@ -82,8 +69,6 @@ export async function signUp(email: string, password: string) {
   }
 
   return data
-<<<<<<< HEAD
-=======
 }
 
 /**
@@ -139,5 +124,4 @@ export function withManagerAuth(handler: (req: NextRequest) => Promise<NextRespo
 
     return handler(req)
   }
->>>>>>> 814f5aa8e56d545825b7fd94a72c02dc721cc589
 } 

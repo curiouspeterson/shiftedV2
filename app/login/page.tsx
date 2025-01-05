@@ -19,11 +19,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-<<<<<<< HEAD
-import { createBrowserClient } from "@supabase/ssr"
-=======
 import { createClient } from "@/lib/supabase/client"
->>>>>>> 814f5aa8e56d545825b7fd94a72c02dc721cc589
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -45,78 +41,6 @@ export default function LoginPage() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 
-<<<<<<< HEAD
-  // Check for existing session on mount
-  useEffect(() => {
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session) {
-        router.replace('/dashboard')
-      }
-    }
-    checkSession()
-  }, [router])
-
-  // Listen for auth state changes
-  useEffect(() => {
-    console.log('Setting up auth state listener...')
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state changed:', { event })
-      
-      if (event === 'SIGNED_IN' && session) {
-        console.log('Calling auth callback...')
-        try {
-          // Wait a bit for the session to be fully established
-          await new Promise(resolve => setTimeout(resolve, 100))
-
-          // Ensure cookies are set before redirecting
-          const response = await fetch('/auth/callback', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              event, 
-              session: {
-                access_token: session.access_token,
-                refresh_token: session.refresh_token
-              }
-            }),
-          })
-          
-          if (!response.ok) {
-            const error = await response.json()
-            throw new Error(error.error || 'Failed to set session cookies')
-          }
-
-          console.log('Auth callback successful')
-          
-          // Show success message
-          toast({
-            title: "Success",
-            description: "Successfully logged in",
-          })
-
-          // Navigate to dashboard
-          router.refresh()
-          router.replace('/dashboard')
-        } catch (error) {
-          console.error('Auth callback error:', error)
-          toast({
-            title: "Error",
-            description: "Failed to complete login. Please try again.",
-            variant: "destructive",
-          })
-          setIsLoading(false)
-        }
-      }
-    })
-
-    return () => subscription.unsubscribe()
-  }, [router])
-
-=======
->>>>>>> 814f5aa8e56d545825b7fd94a72c02dc721cc589
   /**
    * Form submission handler
    * Authenticates user with Supabase
@@ -128,48 +52,26 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-<<<<<<< HEAD
-      console.log('Attempting login...')
-      // Attempt to sign in
-      const { data, error } = await supabase.auth.signInWithPassword({
-=======
       const supabase = createClient()
 
       // Attempt to sign in
       const { error } = await supabase.auth.signInWithPassword({
->>>>>>> 814f5aa8e56d545825b7fd94a72c02dc721cc589
         email,
         password,
       })
 
-<<<<<<< HEAD
-      if (error) {
-        throw error
-      }
-
-      console.log('Login successful:', data)
-      // The navigation will be handled by the auth state change listener
-      
-=======
       if (error) throw error
 
       // Redirect to dashboard on success
       router.push("/dashboard")
->>>>>>> 814f5aa8e56d545825b7fd94a72c02dc721cc589
     } catch (error) {
       console.error('Error signing in:', error)
       toast({
         title: "Error",
-<<<<<<< HEAD
-        description: error instanceof Error ? error.message : "Invalid email or password",
-        variant: "destructive",
-      })
-=======
         description: "Invalid email or password",
         variant: "destructive",
       })
     } finally {
->>>>>>> 814f5aa8e56d545825b7fd94a72c02dc721cc589
       setIsLoading(false)
     }
   }

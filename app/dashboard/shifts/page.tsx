@@ -1,13 +1,3 @@
-<<<<<<< HEAD
-"use client"
-
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
-import { ShiftRequirements } from "./components/shift-requirements"
-
-/**
-=======
 /**
  * Shifts Page Component
  * 
@@ -34,7 +24,6 @@ export const metadata: Metadata = {
 }
 
 /**
->>>>>>> 814f5aa8e56d545825b7fd94a72c02dc721cc589
  * Shifts management page component
  * Renders the shift requirements interface
  */
