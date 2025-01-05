@@ -1,3 +1,18 @@
+/**
+ * Assign Shift Dialog Component
+ * 
+ * A modal dialog component for assigning employees to specific shifts.
+ * Handles employee availability filtering and shift assignment operations.
+ * 
+ * Features:
+ * - Employee availability filtering
+ * - Shift assignment handling
+ * - Loading states
+ * - Error handling
+ * - Success notifications
+ * - Real-time updates
+ */
+
 "use client"
 
 import { useState, useEffect } from "react"
@@ -20,6 +35,14 @@ import { toast } from "@/components/ui/use-toast"
 import { type ShiftRequirement } from "@/types/schedule"
 import { type Employee } from "@/types/employee"
 
+/**
+ * Props for the AssignShiftDialog component
+ * @property open - Whether the dialog is open
+ * @property onOpenChange - Callback for dialog open state changes
+ * @property shiftRequirement - The shift requirement to assign
+ * @property date - The date for the shift assignment
+ * @property onSuccess - Callback for successful assignment
+ */
 interface AssignShiftDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -28,6 +51,10 @@ interface AssignShiftDialogProps {
   onSuccess: () => void
 }
 
+/**
+ * Dialog component for assigning employees to shifts
+ * Filters employees based on availability and handles assignment process
+ */
 export function AssignShiftDialog({
   open,
   onOpenChange,
@@ -35,16 +62,22 @@ export function AssignShiftDialog({
   date,
   onSuccess,
 }: AssignShiftDialogProps) {
+  // State management
   const [employees, setEmployees] = useState<Employee[]>([])
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("")
   const [isLoading, setIsLoading] = useState(false)
 
+  // Fetch available employees when dialog opens
   useEffect(() => {
     if (open) {
       fetchAvailableEmployees()
     }
   }, [open, shiftRequirement, date])
 
+  /**
+   * Fetches employees available for the shift
+   * Filters based on availability and active status
+   */
   const fetchAvailableEmployees = async () => {
     try {
       const supabase = createClient()
@@ -94,6 +127,10 @@ export function AssignShiftDialog({
     }
   }
 
+  /**
+   * Handles shift assignment
+   * Creates a new shift assignment record
+   */
   const handleAssign = async () => {
     if (!selectedEmployeeId) return
 
@@ -139,6 +176,7 @@ export function AssignShiftDialog({
           <DialogTitle>Assign Shift</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
+          {/* Employee selection dropdown */}
           <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId}>
             <SelectTrigger>
               <SelectValue placeholder="Select an employee" />
@@ -151,6 +189,7 @@ export function AssignShiftDialog({
               ))}
             </SelectContent>
           </Select>
+          {/* Dialog actions */}
           <div className="flex justify-end space-x-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancel

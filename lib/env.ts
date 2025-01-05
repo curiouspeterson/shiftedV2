@@ -1,7 +1,20 @@
+/**
+ * Environment Configuration Module
+ * 
+ * This module provides type-safe access to environment variables with runtime validation
+ * using Zod. It handles both server-side and client-side environment configurations,
+ * ensuring that required variables are present and correctly formatted.
+ * 
+ * The module implements a strict separation between server-only and public environment
+ * variables to prevent accidental exposure of sensitive information to the client.
+ */
+
 import { z } from 'zod';
 
 /**
- * Environment variable schema validation using Zod
+ * Server-side environment schema
+ * Defines and validates all environment variables available on the server
+ * Includes both public and private variables
  */
 const serverEnvSchema = z.object({
   // Supabase Configuration
@@ -12,18 +25,28 @@ const serverEnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 });
 
+/**
+ * Client-side environment schema
+ * Defines and validates environment variables that are safe to expose to the client
+ * Should only include public variables (prefixed with NEXT_PUBLIC_)
+ */
 const clientEnvSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
 });
 
-// Type for the client environment
+// Type inference for client environment variables
 type ClientEnv = z.infer<typeof clientEnvSchema>;
 
-// Function to get client-side environment variables
+/**
+ * Retrieves and validates environment variables based on runtime context
+ * Handles both browser and server environments differently
+ * 
+ * @returns Validated environment variables for the current context
+ */
 function getClientEnv(): ClientEnv {
-  // In the browser, read from window.env (which will be populated by Next.js)
+  // Browser environment: Read from Next.js-injected env
   if (typeof window !== 'undefined') {
     return {
       NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -32,7 +55,7 @@ function getClientEnv(): ClientEnv {
     };
   }
 
-  // On the server, validate all environment variables
+  // Server environment: Validate all variables
   const env = serverEnvSchema.parse(process.env);
   return {
     NEXT_PUBLIC_SUPABASE_URL: env.NEXT_PUBLIC_SUPABASE_URL,
@@ -42,15 +65,19 @@ function getClientEnv(): ClientEnv {
 }
 
 /**
- * Validated environment variables
+ * Exported environment configuration
+ * Provides runtime-specific environment variables with type safety
+ * Server-side: Full environment with all variables
+ * Client-side: Limited to public variables only
  */
 export const env = typeof window === 'undefined' 
   ? serverEnvSchema.parse(process.env)
   : getClientEnv();
 
 /**
- * Client-side environment variables
- * Only include public variables here
+ * Public environment variables safe for client-side usage
+ * This object should only contain variables prefixed with NEXT_PUBLIC_
+ * to prevent accidental exposure of sensitive information
  */
 export const clientEnv = {
   NEXT_PUBLIC_SUPABASE_URL: env.NEXT_PUBLIC_SUPABASE_URL,

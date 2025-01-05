@@ -1,80 +1,41 @@
+/**
+ * Employee Availability Component
+ * 
+ * A container component that combines the availability form and list.
+ * Provides a complete interface for managing employee availability.
+ * 
+ * Features:
+ * - Add new availability slots
+ * - View existing availability
+ * - Real-time updates
+ * - State synchronization between form and list
+ */
+
 "use client"
 
-import { useEffect, useState } from "react"
-import { createClient } from "@/lib/supabase/client"
-import { Card, CardContent } from "@/components/ui/card"
-import { format } from "date-fns"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { AvailabilityForm } from "./availability-form"
+import { AvailabilityList } from "./availability-list"
 
-type AvailabilityProps = {
-  employeeId: string
-}
-
-type Availability = {
-  id: string
-  day_of_week: number
-  start_time: string
-  end_time: string
-}
-
-const daysOfWeek = [
-  "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"
-]
-
-const supabase = createClient()
-
-export function EmployeeAvailability({ employeeId }: AvailabilityProps) {
-  const [availability, setAvailability] = useState<Availability[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    fetchAvailability()
-  }, [employeeId])
-
-  async function fetchAvailability() {
-    try {
-      setLoading(true)
-      const { data, error } = await supabase
-        .from('employee_availability')
-        .select('*')
-        .eq('user_id', employeeId)
-        .order('day_of_week')
-
-      if (error) throw error
-      setAvailability(data || [])
-    } catch (error) {
-      console.error('Error fetching availability:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  if (loading) {
-    return <div>Loading availability...</div>
-  }
-
+/**
+ * Employee availability component
+ * Manages the overall availability section of the application
+ */
+export function EmployeeAvailability() {
   return (
-    <div className="grid gap-4">
-      {daysOfWeek.map((day, index) => {
-        const dayAvailability = availability.filter(a => a.day_of_week === index)
-        return (
-          <Card key={day}>
-            <CardContent className="p-4">
-              <h3 className="font-medium mb-2">{day}</h3>
-              {dayAvailability.length > 0 ? (
-                <div className="space-y-2">
-                  {dayAvailability.map((slot) => (
-                    <div key={slot.id} className="text-sm text-muted-foreground">
-                      {format(new Date(`2000-01-01T${slot.start_time}`), 'h:mm a')} - {format(new Date(`2000-01-01T${slot.end_time}`), 'h:mm a')}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">No availability set</p>
-              )}
-            </CardContent>
-          </Card>
-        )
-      })}
+    <div className="space-y-6">
+      {/* Availability form section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Add Availability</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <AvailabilityForm onAvailabilityAdded={() => {}} />
+        </CardContent>
+      </Card>
+
+      {/* Availability list section */}
+      <AvailabilityList onAvailabilityDeleted={() => {}} />
     </div>
   )
 }

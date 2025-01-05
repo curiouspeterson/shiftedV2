@@ -1,3 +1,19 @@
+/**
+ * Toast Component System
+ * 
+ * A comprehensive toast notification system built on top of Radix UI's Toast primitive.
+ * Provides customizable, accessible toast notifications with support for:
+ * - Multiple variants (default, destructive)
+ * - Swipe to dismiss
+ * - Custom actions
+ * - Responsive positioning
+ * - Keyboard navigation
+ * - Screen reader announcements
+ * 
+ * The system consists of multiple sub-components that work together to create
+ * a complete toast notification experience while maintaining full accessibility.
+ */
+
 "use client"
 
 import * as React from "react"
@@ -7,8 +23,17 @@ import { X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Root Provider Component
+ * Manages the state and lifecycle of all toast notifications
+ */
 const ToastProvider = ToastPrimitives.Provider
 
+/**
+ * Viewport Component
+ * Handles the positioning and layout of toast notifications.
+ * Provides responsive behavior and handles overflow when multiple toasts are present.
+ */
 const ToastViewport = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Viewport>,
   React.ComponentPropsWithoutRef<typeof ToastPrimitives.Viewport>
@@ -24,6 +49,11 @@ const ToastViewport = React.forwardRef<
 ))
 ToastViewport.displayName = ToastPrimitives.Viewport.displayName
 
+/**
+ * Toast Variants Configuration
+ * Defines the visual styles for different toast types using class-variance-authority.
+ * Includes animations, transitions, and swipe gesture handling classes.
+ */
 const toastVariants = cva(
   "group pointer-events-auto relative flex w-full items-center justify-between space-x-2 overflow-hidden rounded-md border p-4 pr-6 shadow-lg transition-all data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)] data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[swipe=move]:transition-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[swipe=end]:animate-out data-[state=closed]:fade-out-80 data-[state=closed]:slide-out-to-right-full data-[state=open]:slide-in-from-top-full data-[state=open]:sm:slide-in-from-bottom-full",
   {
@@ -40,6 +70,11 @@ const toastVariants = cva(
   }
 )
 
+/**
+ * Main Toast Component
+ * The core container component that wraps toast content.
+ * Handles variant styling and basic toast functionality.
+ */
 const Toast = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Root>,
   React.ComponentPropsWithoutRef<typeof ToastPrimitives.Root> &
@@ -55,6 +90,11 @@ const Toast = React.forwardRef<
 })
 Toast.displayName = ToastPrimitives.Root.displayName
 
+/**
+ * Toast Action Component
+ * Renders an actionable button within the toast.
+ * Provides appropriate styling for both default and destructive variants.
+ */
 const ToastAction = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Action>,
   React.ComponentPropsWithoutRef<typeof ToastPrimitives.Action>
@@ -70,6 +110,11 @@ const ToastAction = React.forwardRef<
 ))
 ToastAction.displayName = ToastPrimitives.Action.displayName
 
+/**
+ * Toast Close Button Component
+ * Renders a dismissible close button with appropriate styling and hover states.
+ * Includes an X icon and handles focus states for accessibility.
+ */
 const ToastClose = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Close>,
   React.ComponentPropsWithoutRef<typeof ToastPrimitives.Close>
@@ -88,6 +133,11 @@ const ToastClose = React.forwardRef<
 ))
 ToastClose.displayName = ToastPrimitives.Close.displayName
 
+/**
+ * Toast Title Component
+ * Renders the main heading of the toast notification.
+ * Includes styling for proper spacing with description text.
+ */
 const ToastTitle = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Title>,
   React.ComponentPropsWithoutRef<typeof ToastPrimitives.Title>
@@ -100,6 +150,11 @@ const ToastTitle = React.forwardRef<
 ))
 ToastTitle.displayName = ToastPrimitives.Title.displayName
 
+/**
+ * Toast Description Component
+ * Renders the supporting text content of the toast notification.
+ * Styled for proper readability and contrast.
+ */
 const ToastDescription = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Description>,
   React.ComponentPropsWithoutRef<typeof ToastPrimitives.Description>
@@ -112,8 +167,12 @@ const ToastDescription = React.forwardRef<
 ))
 ToastDescription.displayName = ToastPrimitives.Description.displayName
 
+/**
+ * Type Definitions
+ * Exports type definitions for toast props and action elements
+ * to ensure proper TypeScript support when using the components
+ */
 type ToastProps = React.ComponentPropsWithoutRef<typeof Toast>
-
 type ToastActionElement = React.ReactElement<typeof ToastAction>
 
 export {

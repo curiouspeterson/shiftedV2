@@ -1,32 +1,54 @@
+/**
+ * Employees API Route
+ * 
+ * Handles API requests for employee management operations.
+ * Provides endpoints for creating, updating, and deleting employees.
+ * 
+ * Features:
+ * - Request validation
+ * - Action-based routing
+ * - Error handling
+ * - Type safety
+ * - Server-side processing
+ * - Response formatting
+ */
+
 import { NextResponse, NextRequest } from 'next/server'
 import { z } from 'zod'
 import { handleEmployeeAction } from '@/lib/auth-server'
 
-// Define request schema using Zod for validation
+/**
+ * Request schema for employee actions
+ * Validates incoming request data structure
+ */
 const requestSchema = z.object({
+  // Action type for the employee operation
   action: z.enum(['create', 'update', 'delete']),
+  // Data payload for the action
   data: z.object({
-    // Define the structure based on action
-    id: z.string().optional(),
-    name: z.string().optional(),
-    email: z.string().optional(),
-    // Add more fields as necessary
+    id: z.string().optional(),      // Employee ID for update/delete
+    name: z.string().optional(),    // Employee name for create/update
+    email: z.string().optional(),   // Employee email for create/update
+    // Additional fields can be added as needed
   }),
 })
 
 /**
- * Handles POST requests for employee actions.
- * @param req - Incoming NextRequest object.
- * @returns JSON response based on the action outcome.
+ * POST request handler
+ * Processes employee management actions
+ * 
+ * @param req - Incoming request object
+ * @returns JSON response with action result or error
  */
 export async function POST(req: NextRequest) {
   try {
-    // Validate the request body
+    // Validate request body against schema
     const { action, data } = requestSchema.parse(await req.json())
 
-    // Delegate handling to server-only function
+    // Delegate to server-side handler
     return await handleEmployeeAction(req)
   } catch (error: any) {
+    // Log and format error response
     console.error('API error:', error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Unknown error occurred' },

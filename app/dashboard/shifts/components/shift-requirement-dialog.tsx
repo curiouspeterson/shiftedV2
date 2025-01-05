@@ -1,3 +1,18 @@
+/**
+ * Shift Requirement Dialog Component
+ * 
+ * A form dialog component for creating and editing shift requirements.
+ * Implements a fully controlled form with validation using React Hook Form and Zod.
+ * Provides real-time validation feedback and handles API interactions for saving data.
+ * 
+ * Features:
+ * - Create new shift requirements
+ * - Edit existing shift requirements
+ * - Form validation with error messages
+ * - Loading states during submission
+ * - Success/error notifications via toast
+ */
+
 "use client"
 
 import { z } from "zod"
@@ -19,6 +34,10 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { type ControllerRenderProps } from "react-hook-form"
 
+/**
+ * Zod schema for form validation
+ * Defines the shape and validation rules for shift requirement data
+ */
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
   day_of_week: z.number().min(0).max(6),
@@ -27,14 +46,25 @@ const formSchema = z.object({
   required_count: z.number().min(1),
 })
 
+// Type inference for form values from schema
 type FormValues = z.infer<typeof formSchema>
 
+/**
+ * Props for the ShiftRequirementDialog component
+ * @property shiftRequirement - Optional existing requirement for editing mode
+ * @property onSuccess - Callback function after successful save
+ * @property onClose - Callback function to close the dialog
+ */
 interface ShiftRequirementDialogProps {
   shiftRequirement?: ShiftRequirement
   onSuccess: () => void
   onClose: () => void
 }
 
+/**
+ * Dialog component for creating and editing shift requirements
+ * Handles both creation and editing modes with the same form interface
+ */
 export function ShiftRequirementDialog({
   shiftRequirement,
   onSuccess,
@@ -43,6 +73,7 @@ export function ShiftRequirementDialog({
   const [isLoading, setIsLoading] = useState(false)
   const isEditing = !!shiftRequirement
 
+  // Initialize form with React Hook Form and Zod validation
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -54,12 +85,18 @@ export function ShiftRequirementDialog({
     },
   })
 
+  /**
+   * Form submission handler
+   * Sends data to the API and handles success/error states
+   * @param values - Validated form values
+   */
   const onSubmit = async (values: FormValues) => {
     try {
       setIsLoading(true)
       const endpoint = '/api/shift-requirements'
       const method = isEditing ? 'PUT' : 'POST'
       
+      // Send request to API
       const response = await fetch(endpoint, {
         method,
         headers: {
@@ -73,6 +110,7 @@ export function ShiftRequirementDialog({
         throw new Error(error.error || 'Failed to save shift requirement')
       }
 
+      // Handle success
       onSuccess()
       onClose()
       toast({
@@ -94,6 +132,7 @@ export function ShiftRequirementDialog({
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        {/* Name field */}
         <FormField
           control={form.control}
           name="name"
@@ -108,6 +147,7 @@ export function ShiftRequirementDialog({
           )}
         />
 
+        {/* Day of week selection */}
         <FormField
           control={form.control}
           name="day_of_week"
@@ -138,6 +178,7 @@ export function ShiftRequirementDialog({
           )}
         />
 
+        {/* Start time input */}
         <FormField
           control={form.control}
           name="start_time"
@@ -152,6 +193,7 @@ export function ShiftRequirementDialog({
           )}
         />
 
+        {/* End time input */}
         <FormField
           control={form.control}
           name="end_time"
@@ -166,6 +208,7 @@ export function ShiftRequirementDialog({
           )}
         />
 
+        {/* Required employee count input */}
         <FormField
           control={form.control}
           name="required_count"
@@ -185,6 +228,7 @@ export function ShiftRequirementDialog({
           )}
         />
 
+        {/* Form actions */}
         <div className="flex justify-end space-x-2">
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel

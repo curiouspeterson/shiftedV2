@@ -1,21 +1,42 @@
 {
+  /**
+   * Shadcn UI Configuration
+   * 
+   * Configuration file for Shadcn UI components and styling preferences.
+   * Defines the project's component library settings, styling options,
+   * and import aliases.
+   * 
+   * @see https://ui.shadcn.com/docs/installation
+   */
   "$schema": "https://ui.shadcn.com/schema.json",
+  // Visual style preset
   "style": "new-york",
+  // Enable React Server Components
   "rsc": true,
+  // Use TypeScript with JSX
   "tsx": true,
+  // Tailwind CSS configuration
   "tailwind": {
+    // Path to Tailwind config file
     "config": "tailwind.config.js",
+    // Path to global CSS file
     "css": "app/globals.css",
+    // Base color for the theme
     "baseColor": "neutral",
+    // Use CSS variables for colors
     "cssVariables": true,
+    // No prefix for utility classes
     "prefix": ""
   },
+  // Import path aliases
   "aliases": {
+    // Component directory aliases
     "components": "@/components",
     "utils": "@/lib/utils",
     "ui": "@/components/ui",
     "lib": "@/lib",
     "hooks": "@/hooks"
   },
+  // Icon library selection
   "iconLibrary": "lucide"
 }

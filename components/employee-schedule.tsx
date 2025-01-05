@@ -1,3 +1,20 @@
+/**
+ * Employee Schedule Component
+ * 
+ * Displays and manages an individual employee's shift schedule.
+ * Provides functionality for viewing and responding to shift assignments.
+ * 
+ * Features:
+ * - Date range filtering
+ * - Shift details display
+ * - Status indicators
+ * - Accept/reject actions
+ * - Real-time updates
+ * - Loading states
+ * - Error handling
+ * - Empty state handling
+ */
+
 "use client"
 
 import { useState, useEffect } from "react"
@@ -7,12 +24,25 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/components/ui/use-toast"
 
+/**
+ * Shift data structure
+ * @property name - Name or description of the shift
+ * @property start_time - Start time of the shift
+ * @property end_time - End time of the shift
+ */
 interface Shift {
   name: string
   start_time: string
   end_time: string
 }
 
+/**
+ * Shift assignment data structure
+ * @property id - Unique identifier for the assignment
+ * @property shift_id - ID of the assigned shift
+ * @property status - Current status of the assignment
+ * @property shift - Associated shift details
+ */
 interface ShiftAssignment {
   id: string
   shift_id: string
@@ -20,20 +50,36 @@ interface ShiftAssignment {
   shift: Shift
 }
 
+/**
+ * Component props
+ * @property employeeId - ID of the employee whose schedule to display
+ * @property startDate - Start date for schedule range
+ * @property endDate - End date for schedule range
+ */
 interface EmployeeScheduleProps {
   employeeId: string
   startDate: Date
   endDate: Date
 }
 
+/**
+ * Employee schedule component
+ * Manages the display and interaction with shift assignments
+ */
 export function EmployeeSchedule({ employeeId, startDate, endDate }: EmployeeScheduleProps) {
+  // State management
   const [assignments, setAssignments] = useState<ShiftAssignment[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
+  // Fetch schedule when props change
   useEffect(() => {
     fetchSchedule()
   }, [employeeId, startDate, endDate])
 
+  /**
+   * Fetches shift assignments for the employee
+   * Filters by date range and transforms response data
+   */
   const fetchSchedule = async () => {
     setIsLoading(true)
     try {
@@ -42,6 +88,7 @@ export function EmployeeSchedule({ employeeId, startDate, endDate }: EmployeeSch
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
       )
 
+      // Query shift assignments with related shift data
       const { data, error } = await supabase
         .from('shift_assignments')
         .select(`
@@ -80,6 +127,11 @@ export function EmployeeSchedule({ employeeId, startDate, endDate }: EmployeeSch
     }
   }
 
+  /**
+   * Updates the status of a shift assignment
+   * @param assignmentId - ID of the assignment to update
+   * @param newStatus - New status to set
+   */
   const handleStatusChange = async (assignmentId: string, newStatus: 'accepted' | 'rejected') => {
     try {
       const supabase = createBrowserClient(
@@ -87,6 +139,7 @@ export function EmployeeSchedule({ employeeId, startDate, endDate }: EmployeeSch
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
       )
 
+      // Update assignment status
       const { error } = await supabase
         .from('shift_assignments')
         .update({ status: newStatus })
@@ -94,6 +147,7 @@ export function EmployeeSchedule({ employeeId, startDate, endDate }: EmployeeSch
 
       if (error) throw error
 
+      // Show success message
       toast({
         title: "Success",
         description: `Shift ${newStatus} successfully`,
@@ -116,21 +170,25 @@ export function EmployeeSchedule({ employeeId, startDate, endDate }: EmployeeSch
     }
   }
 
+  // Show loading state
   if (isLoading) {
     return <div>Loading schedule...</div>
   }
 
+  // Show empty state
   if (assignments.length === 0) {
     return <div>No shifts scheduled for this period.</div>
   }
 
   return (
     <div className="space-y-4">
+      {/* Map through and display assignments */}
       {assignments.map((assignment) => (
         <Card key={assignment.id}>
           <CardHeader>
             <CardTitle className="flex justify-between items-center">
               <span>{assignment.shift.name}</span>
+              {/* Status badge */}
               <Badge
                 variant={
                   assignment.status === 'accepted'
@@ -145,9 +203,11 @@ export function EmployeeSchedule({ employeeId, startDate, endDate }: EmployeeSch
             </CardTitle>
           </CardHeader>
           <CardContent>
+            {/* Shift time display */}
             <p>
               {assignment.shift.start_time} - {assignment.shift.end_time}
             </p>
+            {/* Action buttons for pending assignments */}
             {assignment.status === 'pending' && (
               <div className="flex gap-2 mt-4">
                 <button

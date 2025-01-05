@@ -1,3 +1,17 @@
+/**
+ * Employee Management Dialog Component
+ * 
+ * A dialog component for creating and managing employee accounts.
+ * Handles user creation in Supabase Auth and profile management.
+ * 
+ * Features:
+ * - Create new employee accounts
+ * - Set employee roles (employee/manager)
+ * - Automatic profile creation through Supabase triggers
+ * - Email notification for password setup
+ * - Error handling and user feedback
+ */
+
 "use client"
 
 import * as React from "react"
@@ -23,6 +37,13 @@ import {
 import { toast } from "@/components/ui/use-toast"
 import { type Employee } from "@/types/employee"
 
+/**
+ * Props for the EmployeeDialog component
+ * @property open - Controls dialog visibility
+ * @property onOpenChange - Callback for dialog open state changes
+ * @property employee - Employee data for editing mode (null for create mode)
+ * @property onSuccess - Callback function after successful operation
+ */
 interface EmployeeDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -30,22 +51,32 @@ interface EmployeeDialogProps {
   onSuccess: () => void
 }
 
+/**
+ * Dialog component for employee management
+ * Provides interface for creating and editing employee accounts
+ */
 export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: EmployeeDialogProps) {
+  // State management for form fields and loading state
   const [isLoading, setIsLoading] = React.useState(false)
   const [email, setEmail] = React.useState(employee?.email || "")
   const [fullName, setFullName] = React.useState(employee?.full_name || "")
   const [role, setRole] = React.useState<"employee" | "manager">(employee?.role || "employee")
 
+  /**
+   * Form submission handler
+   * Creates new employee account with auth and profile
+   * @param event - Form submission event
+   */
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     try {
       setIsLoading(true)
       const supabase = createClient()
 
-      // Create the auth user with metadata
+      // Create auth user account with role metadata
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
-        password: 'tempPassword123!', // You should generate a random password or handle this better
+        password: 'tempPassword123!', // TODO: Implement secure password generation
         options: {
           data: {
             full_name: fullName,
@@ -62,10 +93,10 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
         throw new Error('No user returned from auth signup')
       }
 
-      // Wait a moment for the trigger to create the profile
+      // Allow time for database trigger to create profile
       await new Promise(resolve => setTimeout(resolve, 1000))
 
-      // Verify the profile was created
+      // Verify profile creation was successful
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -73,11 +104,12 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
         .single()
 
       if (profileError || !profile) {
-        // If profile doesn't exist, clean up the auth user
+        // Cleanup: Remove auth user if profile creation failed
         await supabase.auth.admin.deleteUser(authData.user.id)
         throw new Error('Failed to create user profile')
       }
 
+      // Show success message and close dialog
       toast({
         title: "Success",
         description: "Employee created successfully. They will receive an email to set their password.",
@@ -108,6 +140,7 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="space-y-4 py-4">
+            {/* Email input field */}
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -118,6 +151,7 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
                 required
               />
             </div>
+            {/* Full name input field */}
             <div className="space-y-2">
               <Label htmlFor="fullName">Full Name</Label>
               <Input
@@ -127,6 +161,7 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
                 required
               />
             </div>
+            {/* Role selection dropdown */}
             <div className="space-y-2">
               <Label htmlFor="role">Role</Label>
               <Select value={role} onValueChange={(value: "employee" | "manager") => setRole(value)}>
@@ -140,6 +175,7 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
               </Select>
             </div>
           </div>
+          {/* Dialog action buttons */}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel

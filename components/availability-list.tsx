@@ -1,11 +1,58 @@
+/**
+ * Availability List Component
+ * 
+ * Displays and manages a list of employee availability time slots.
+ * Implements real-time updates using Supabase subscriptions.
+ * 
+ * Features:
+ * - Real-time updates for availability slots
+ * - Day and time formatting
+ * - Delete functionality
+ * - Loading states
+ * - Error handling
+ * - Empty state handling
+ * - Automatic cleanup of subscriptions
+ */
+
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { createBrowserClient } from '@supabase/ssr'
 import { toast } from "@/components/ui/use-toast"
+import { Loader2, AlertCircle, Trash2 } from 'lucide-react'
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
+/**
+ * Availability slot data structure
+ * @property id - Unique identifier for the availability slot
+ * @property profile_id - ID of the employee profile
+ * @property day_of_week - Numeric day of week (0-6, Sunday-Saturday)
+ * @property start_time - Start time in HH:MM format
+ * @property end_time - End time in HH:MM format
+ * @property created_at - Record creation timestamp
+ */
+type AvailabilitySlot = {
+  id: string
+  profile_id: string
+  day_of_week: number
+  start_time: string
+  end_time: string
+  created_at: string
+}
+
+/**
+ * Component props
+ * @property onAvailabilityDeleted - Optional callback function triggered after successful deletion
+ */
+interface AvailabilityListProps {
+  onAvailabilityDeleted?: () => void
+}
+
+/**
+ * Maps numeric day values to day names
+ */
 const DAYS_OF_WEEK = [
   "Sunday",
   "Monday",
@@ -16,80 +63,107 @@ const DAYS_OF_WEEK = [
   "Saturday"
 ]
 
-interface Availability {
-  id: string
-  profile_id: string
-  day_of_week: number
-  start_time: string
-  end_time: string
-}
+/**
+ * Availability list component
+ * Displays and manages real-time updates of availability slots
+ */
+export function AvailabilityList({ onAvailabilityDeleted }: AvailabilityListProps) {
+  // State management
+  const [slots, setSlots] = useState<AvailabilitySlot[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
-interface AvailabilityListProps {
-  availabilities: Availability[]
-  onAvailabilityUpdated: () => void
-  onAvailabilityDeleted: () => void
-}
+  // Initialize Supabase client
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
 
-export function AvailabilityList({
-  availabilities,
-  onAvailabilityUpdated,
-  onAvailabilityDeleted
-}: AvailabilityListProps) {
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [editStartTime, setEditStartTime] = useState("")
-  const [editEndTime, setEditEndTime] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
+  useEffect(() => {
+    let subscription: any
 
-  const handleEdit = (availability: Availability) => {
-    setEditingId(availability.id)
-    setEditStartTime(availability.start_time)
-    setEditEndTime(availability.end_time)
-  }
+    /**
+     * Sets up real-time subscription and initial data fetch
+     * Handles updates, inserts, and deletions in real-time
+     */
+    const setupSubscription = async () => {
+      try {
+        setError(null)
+        // Get current user
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) throw new Error("No user found")
 
-  const handleUpdate = async (id: string) => {
-    setIsLoading(true)
-    try {
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
+        // Fetch initial availability data
+        const { data, error } = await supabase
+          .from('employee_availability')
+          .select('*')
+          .eq('profile_id', user.id)
+          .order('day_of_week', { ascending: true })
 
-      const { error } = await supabase
-        .from('employee_availability')
-        .update({
-          start_time: editStartTime,
-          end_time: editEndTime
-        })
-        .eq('id', id)
+        if (error) throw error
+        setSlots(data)
 
-      if (error) throw error
+        // Set up real-time subscription for changes
+        subscription = supabase
+          .channel('availability_changes')
+          .on('postgres_changes', 
+            { 
+              event: '*', 
+              schema: 'public', 
+              table: 'employee_availability',
+              filter: `profile_id=eq.${user.id}`
+            }, 
+            (payload) => {
+              // Handle different types of changes
+              if (payload.eventType === 'INSERT') {
+                setSlots(prev => [...prev, payload.new as AvailabilitySlot])
+              } else if (payload.eventType === 'DELETE') {
+                setSlots(prev => prev.filter(slot => slot.id !== payload.old.id))
+              }
+            }
+          )
+          .subscribe()
 
-      toast({
-        title: "Success",
-        description: "Availability updated successfully",
-      })
-
-      setEditingId(null)
-      onAvailabilityUpdated()
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to update availability",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
+      } catch (error) {
+        console.error('Error setting up subscription:', error)
+        setError('Failed to fetch availability slots. Please try again later.')
+      } finally {
+        setLoading(false)
+      }
     }
+
+    // Initialize subscription
+    setupSubscription()
+
+    // Cleanup subscription on unmount
+    return () => {
+      if (subscription) {
+        supabase.removeChannel(subscription)
+      }
+    }
+  }, [])
+
+  /**
+   * Formats time string from HH:MM to 12-hour format
+   * @param time - Time string in HH:MM format
+   * @returns Formatted time string in 12-hour format
+   */
+  const formatTime = (time: string) => {
+    const [hours, minutes] = time.split(':')
+    const hour = parseInt(hours)
+    const ampm = hour >= 12 ? 'PM' : 'AM'
+    const formattedHour = hour % 12 || 12
+    return `${formattedHour}:${minutes} ${ampm}`
   }
 
+  /**
+   * Deletes an availability slot
+   * @param id - ID of the slot to delete
+   */
   const handleDelete = async (id: string) => {
-    setIsLoading(true)
+    setIsDeleting(true)
     try {
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
-
       const { error } = await supabase
         .from('employee_availability')
         .delete()
@@ -99,93 +173,80 @@ export function AvailabilityList({
 
       toast({
         title: "Success",
-        description: "Availability deleted successfully",
+        description: "Availability slot deleted successfully",
       })
 
-      onAvailabilityDeleted()
+      onAvailabilityDeleted?.()
     } catch (error) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to delete availability",
+        description: "Failed to delete availability slot",
         variant: "destructive",
       })
     } finally {
-      setIsLoading(false)
+      setIsDeleting(false)
     }
   }
 
-  if (availabilities.length === 0) {
-    return <p className="text-muted-foreground">No availabilities set.</p>
+  // Show loading spinner while fetching data
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="flex items-center justify-center py-6">
+          <Loader2 className="h-6 w-6 animate-spin" />
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // Show error message if fetch failed
+  if (error) {
+    return (
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Error</AlertTitle>
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    )
   }
 
   return (
-    <div className="space-y-4 mt-6">
-      {availabilities.map((availability) => (
-        <div key={availability.id} className="flex items-center gap-4 p-4 border rounded-lg">
-          <div className="flex-1">
-            <p className="font-medium">{DAYS_OF_WEEK[availability.day_of_week]}</p>
-            {editingId === availability.id ? (
-              <div className="flex gap-2 mt-2">
-                <Input
-                  type="time"
-                  value={editStartTime}
-                  onChange={(e) => setEditStartTime(e.target.value)}
-                />
-                <span className="self-center">to</span>
-                <Input
-                  type="time"
-                  value={editEndTime}
-                  onChange={(e) => setEditEndTime(e.target.value)}
-                />
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                {availability.start_time} to {availability.end_time}
-              </p>
-            )}
-          </div>
-          <div className="flex gap-2">
-            {editingId === availability.id ? (
-              <>
-                <Button
-                  size="sm"
-                  onClick={() => handleUpdate(availability.id)}
-                  disabled={isLoading}
-                >
-                  Save
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setEditingId(null)}
-                  disabled={isLoading}
-                >
-                  Cancel
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleEdit(availability)}
-                  disabled={isLoading}
-                >
-                  Edit
-                </Button>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => handleDelete(availability.id)}
-                  disabled={isLoading}
-                >
-                  Delete
-                </Button>
-              </>
-            )}
-          </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>Your Availability</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          {slots.length === 0 ? (
+            // Show message if no slots exist
+            <p className="text-center text-muted-foreground">No availability slots found</p>
+          ) : (
+            // Map through and display slots
+            slots.map((slot) => (
+              <Card key={slot.id}>
+                <CardContent className="flex items-center justify-between p-4">
+                  {/* Day and time range display */}
+                  <div className="space-y-1">
+                    <p className="font-medium">{DAYS_OF_WEEK[slot.day_of_week]}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {formatTime(slot.start_time)} - {formatTime(slot.end_time)}
+                    </p>
+                  </div>
+                  {/* Delete button */}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleDelete(slot.id)}
+                    disabled={isDeleting}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </CardContent>
+              </Card>
+            ))
+          )}
         </div>
-      ))}
-    </div>
+      </CardContent>
+    </Card>
   )
 }

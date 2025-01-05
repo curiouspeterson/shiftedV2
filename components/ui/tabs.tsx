@@ -1,3 +1,19 @@
+/**
+ * Tabs Component Module
+ * 
+ * A collection of tab components built with Radix UI Tabs primitives.
+ * Provides a set of accessible, styled components for creating tabbed interfaces
+ * that organize content into separate views.
+ * 
+ * Features:
+ * - Accessible tab navigation
+ * - Keyboard controls
+ * - Screen reader support
+ * - Animated transitions
+ * - Customizable styling
+ * - Responsive design
+ */
+
 "use client"
 
 import * as React from "react"
@@ -5,8 +21,23 @@ import * as TabsPrimitive from "@radix-ui/react-tabs"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Root tabs provider component
+ * Provides context for the tabs interface
+ */
 const Tabs = TabsPrimitive.Root
 
+/**
+ * Tabs list component
+ * Container for tab triggers
+ * 
+ * @component
+ * @example
+ * <TabsList>
+ *   <TabsTrigger value="tab1">Tab 1</TabsTrigger>
+ *   <TabsTrigger value="tab2">Tab 2</TabsTrigger>
+ * </TabsList>
+ */
 const TabsList = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.List>,
   React.ComponentPropsWithoutRef<typeof TabsPrimitive.List>
@@ -22,6 +53,14 @@ const TabsList = React.forwardRef<
 ))
 TabsList.displayName = TabsPrimitive.List.displayName
 
+/**
+ * Tabs trigger component
+ * The clickable tab button that activates its associated content
+ * 
+ * @component
+ * @example
+ * <TabsTrigger value="settings">Settings</TabsTrigger>
+ */
 const TabsTrigger = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.Trigger>,
   React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>
@@ -37,6 +76,17 @@ const TabsTrigger = React.forwardRef<
 ))
 TabsTrigger.displayName = TabsPrimitive.Trigger.displayName
 
+/**
+ * Tabs content component
+ * Container for the content associated with a tab
+ * 
+ * @component
+ * @example
+ * <TabsContent value="settings">
+ *   <h2>Settings Panel</h2>
+ *   <p>Configure your preferences here.</p>
+ * </TabsContent>
+ */
 const TabsContent = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof TabsPrimitive.Content>

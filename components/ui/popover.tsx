@@ -1,3 +1,20 @@
+/**
+ * Popover Component Module
+ * 
+ * A collection of popover components built with Radix UI Popover primitives.
+ * Provides a set of accessible, styled components for creating floating content
+ * panels that appear relative to a trigger element.
+ * 
+ * Features:
+ * - Accessible popover panels
+ * - Keyboard navigation
+ * - Focus management
+ * - Screen reader support
+ * - Customizable positioning
+ * - Animated transitions
+ * - Click outside dismissal
+ */
+
 "use client"
 
 import * as React from "react"
@@ -5,10 +22,33 @@ import * as PopoverPrimitive from "@radix-ui/react-popover"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Root popover provider component
+ * Provides context for the popover functionality
+ */
 const Popover = PopoverPrimitive.Root
 
+/**
+ * Popover trigger component
+ * The element that triggers the popover when interacted with
+ * 
+ * @component
+ * @example
+ * <PopoverTrigger>Click me</PopoverTrigger>
+ */
 const PopoverTrigger = PopoverPrimitive.Trigger
 
+/**
+ * Popover content component
+ * The floating panel that contains the popover content
+ * 
+ * @component
+ * @example
+ * <PopoverContent>
+ *   <h3>Popover Title</h3>
+ *   <p>This is the popover content.</p>
+ * </PopoverContent>
+ */
 const PopoverContent = React.forwardRef<
   React.ElementRef<typeof PopoverPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content>

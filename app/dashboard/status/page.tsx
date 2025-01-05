@@ -1,9 +1,31 @@
+/**
+ * Status Page Component
+ * 
+ * A dashboard page that displays the development status and roadmap of the Schedule Manager application.
+ * Provides a comprehensive overview of completed, in-progress, and planned features,
+ * along with technical stack information and future development plans.
+ * 
+ * Features:
+ * - Feature status cards with completion indicators
+ * - Technical stack overview
+ * - Roadmap and upcoming features
+ * - Responsive grid layout
+ * - Visual status indicators
+ * 
+ * @component
+ */
+
 "use client"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { CheckCircle2, Circle, Clock } from "lucide-react"
 
+/**
+ * Feature configuration array
+ * Defines the status and details of all application features
+ * Each feature includes a name, description, overall status, and sub-items
+ */
 const features = [
   {
     name: "Authentication & Authorization",
@@ -75,6 +97,11 @@ const features = [
   }
 ]
 
+/**
+ * Returns the appropriate icon component based on status
+ * @param {string} status - The status of the feature ('completed', 'in_progress', or 'planned')
+ * @returns {JSX.Element} Icon component representing the status
+ */
 const getStatusIcon = (status: string) => {
   switch (status) {
     case "completed":
@@ -86,6 +113,11 @@ const getStatusIcon = (status: string) => {
   }
 }
 
+/**
+ * Returns the appropriate badge component based on status
+ * @param {string} status - The status of the feature ('completed', 'in_progress', or 'planned')
+ * @returns {JSX.Element} Badge component representing the status
+ */
 const getStatusBadge = (status: string) => {
   switch (status) {
     case "completed":
@@ -97,6 +129,11 @@ const getStatusBadge = (status: string) => {
   }
 }
 
+/**
+ * Status page component
+ * Renders a comprehensive view of the application's development status
+ * Includes feature cards, technical stack, and roadmap information
+ */
 export default function StatusPage() {
   return (
     <div className="space-y-6">
