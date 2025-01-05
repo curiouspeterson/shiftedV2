@@ -80,6 +80,11 @@ export function AssignShiftDialog({
    */
   const fetchAvailableEmployees = async () => {
     try {
+      console.log('Fetching employees for shift:', {
+        date,
+        shiftRequirement
+      })
+      
       const supabase = createClient()
       const { data, error } = await supabase
         .from('profiles')
@@ -88,7 +93,6 @@ export function AssignShiftDialog({
           full_name,
           email,
           role,
-          weekly_hour_limit,
           availability:employee_availability (
             day_of_week,
             start_time,
@@ -98,32 +102,90 @@ export function AssignShiftDialog({
         .eq('is_active', true)
 
       if (error) throw error
+      
+      console.log('Raw profiles data:', data)
 
-      // Filter employees based on availability
-      const availableEmployees = (data || []).filter(employee => {
+      // Transform employees and check availability
+      const employeesWithAvailability = (data || []).map(employee => {
         const employeeWithAvailability = {
           ...employee,
           is_active: true,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         } as Employee
-        return employeeWithAvailability.availability?.some(slot => {
-          return (
-            slot.day_of_week === new Date(date).getDay() &&
+        
+        const dayOfWeek = new Date(date).getDay()
+        console.log('Shift day of week:', dayOfWeek)
+        
+        const hasAvailability = employeeWithAvailability.availability?.some(slot => {
+          const matches = (
+            slot.day_of_week === dayOfWeek &&
             slot.start_time <= shiftRequirement.start_time &&
             slot.end_time >= shiftRequirement.end_time
           )
+          console.log('Availability slot:', {
+            slot,
+            shiftStart: shiftRequirement.start_time,
+            shiftEnd: shiftRequirement.end_time,
+            matches
+          })
+          return matches
         })
+        
+        console.log('Employee available:', hasAvailability)
+        return {
+          ...employeeWithAvailability,
+          hasAvailability
+        }
       })
 
-      setEmployees(availableEmployees as Employee[])
+      console.log('Employees with availability status:', employeesWithAvailability)
+      setEmployees(employeesWithAvailability)
     } catch (error) {
       console.error('Error fetching employees:', error)
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to fetch available employees",
+        description: "Failed to fetch employees",
       })
+    }
+  }
+
+  /**
+   * Checks if a shift overlaps with another shift
+   */
+  const hasTimeOverlap = (start1: string, end1: string, start2: string, end2: string) => {
+    return start1 < end2 && end1 > start2
+  }
+
+  /**
+   * Checks if an employee has any conflicting shifts on the given date
+   */
+  const checkForConflicts = async (employeeId: string) => {
+    try {
+      const supabase = createClient()
+      const { data: existingShifts, error } = await supabase
+        .from('shift_assignments')
+        .select('*')
+        .eq('profile_id', employeeId)
+        .eq('date', date)
+
+      if (error) throw error
+
+      // Check for any overlapping shifts
+      const conflicts = existingShifts?.filter(shift => 
+        hasTimeOverlap(
+          shift.start_time,
+          shift.end_time,
+          shiftRequirement.start_time,
+          shiftRequirement.end_time
+        )
+      )
+
+      return conflicts?.length > 0
+    } catch (error) {
+      console.error('Error checking for conflicts:', error)
+      return false
     }
   }
 
@@ -136,6 +198,17 @@ export function AssignShiftDialog({
 
     setIsLoading(true)
     try {
+      // Check for conflicts before assigning
+      const hasConflicts = await checkForConflicts(selectedEmployeeId)
+      if (hasConflicts) {
+        toast({
+          variant: "destructive",
+          title: "Schedule Conflict",
+          description: "This employee already has a shift during this time period",
+        })
+        return
+      }
+
       const supabase = createClient()
       const { error } = await supabase
         .from('shift_assignments')
@@ -183,12 +256,22 @@ export function AssignShiftDialog({
             </SelectTrigger>
             <SelectContent>
               {employees.map((employee) => (
-                <SelectItem key={employee.id} value={employee.id}>
-                  {employee.full_name}
+                <SelectItem 
+                  key={employee.id} 
+                  value={employee.id}
+                  className={employee.hasAvailability ? '' : 'text-yellow-500'}
+                >
+                  {employee.full_name} {!employee.hasAvailability && '(No availability)'}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+          {/* Warning if selected employee has no availability */}
+          {selectedEmployeeId && !employees.find(e => e.id === selectedEmployeeId)?.hasAvailability && (
+            <div className="text-sm text-yellow-500">
+              Warning: This employee has not set their availability for this time slot
+            </div>
+          )}
           {/* Dialog actions */}
           <div className="flex justify-end space-x-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>

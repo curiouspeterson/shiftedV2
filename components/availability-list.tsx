@@ -105,8 +105,12 @@ export function AvailabilityList({ onAvailabilityDeleted }: AvailabilityListProp
         setSlots(data)
 
         // Set up real-time subscription for changes
+        console.log('Setting up availability subscription for user:', user.id)
+        const channelName = `availability_${user.id}_${Math.random()}`
+        console.log('Channel name:', channelName)
+        
         subscription = supabase
-          .channel('availability_changes')
+          .channel(channelName)
           .on('postgres_changes', 
             { 
               event: '*', 
@@ -115,15 +119,52 @@ export function AvailabilityList({ onAvailabilityDeleted }: AvailabilityListProp
               filter: `profile_id=eq.${user.id}`
             }, 
             (payload) => {
-              // Handle different types of changes
-              if (payload.eventType === 'INSERT') {
-                setSlots(prev => [...prev, payload.new as AvailabilitySlot])
-              } else if (payload.eventType === 'DELETE') {
-                setSlots(prev => prev.filter(slot => slot.id !== payload.old.id))
+              console.log('Received availability update:', payload)
+              try {
+                // Handle different types of changes
+                if (payload.eventType === 'INSERT') {
+                  console.log('Handling INSERT:', payload.new)
+                  setSlots(prev => {
+                    console.log('Previous slots:', prev)
+                    const newState = [...prev, payload.new as AvailabilitySlot]
+                    console.log('New state:', newState)
+                    return newState
+                  })
+                } else if (payload.eventType === 'DELETE') {
+                  console.log('Handling DELETE:', payload.old)
+                  setSlots(prev => {
+                    console.log('Previous slots:', prev)
+                    const newState = prev.filter(slot => slot.id !== payload.old.id)
+                    console.log('New state:', newState)
+                    return newState
+                  })
+                }
+              } catch (error) {
+                console.error('Error handling real-time update:', error)
               }
             }
           )
-          .subscribe()
+          .subscribe((status, err) => {
+            console.log('Availability subscription status:', status, 'Error:', err)
+            if (status === 'SUBSCRIBED') {
+              console.log('Successfully subscribed to availability changes')
+            } else if (status === 'CHANNEL_ERROR') {
+              console.error('Failed to subscribe to availability changes:', err)
+              setError('Failed to set up real-time updates. Please refresh the page.')
+            } else if (status === 'TIMED_OUT') {
+              console.error('Subscription timed out:', err)
+              setError('Connection timed out. Please refresh the page.')
+            } else if (status === 'CLOSED') {
+              console.error('Subscription closed:', err)
+              setError('Connection closed. Please refresh the page.')
+            } else if (status === 'DISCONNECTED') {
+              console.error('Subscription disconnected:', err)
+              setError('Connection disconnected. Please refresh the page.')
+            } else if (status === 'CHANNEL_ERROR') {
+              console.error('Channel error:', err)
+              setError('Real-time connection error. Please refresh the page.')
+            }
+          })
 
       } catch (error) {
         console.error('Error setting up subscription:', error)

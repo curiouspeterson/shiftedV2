@@ -105,18 +105,19 @@ export function ShiftRequirementDialog({
         body: JSON.stringify(isEditing ? { id: shiftRequirement?.id, ...values } : values),
       })
 
+      const data = await response.json()
+
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to save shift requirement')
+        throw new Error(data.error || 'Failed to save shift requirement')
       }
 
       // Handle success
-      onSuccess()
-      onClose()
       toast({
         title: 'Success',
         description: `Shift requirement ${isEditing ? 'updated' : 'created'} successfully`,
       })
+      onSuccess()
+      onClose()
     } catch (error: any) {
       console.error('Failed to save shift requirement:', error)
       toast({

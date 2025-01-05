@@ -45,6 +45,7 @@ const navItems: NavItem[] = [
   { href: "/dashboard/time-off", label: "Time Off" },
   { href: "/dashboard/employees", label: "Employees", managerOnly: true },
   { href: "/dashboard/shifts", label: "Shifts", managerOnly: true },
+  { href: "/dashboard/status", label: "Status" },
 ]
 
 /**

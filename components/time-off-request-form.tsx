@@ -90,7 +90,7 @@ export function TimeOffRequestForm({ onSubmit }: TimeOffRequestFormProps) {
         .from('time_off_requests')
         .insert([
           {
-            user_id: user.id,
+            profile_id: user.id,
             start_date: startDate.toISOString().split('T')[0],
             end_date: endDate.toISOString().split('T')[0],
             reason,

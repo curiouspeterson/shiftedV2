@@ -34,7 +34,7 @@ export function AddShiftForm() {
   const [date, setDate] = useState<Date | undefined>()
   const [startTime, setStartTime] = useState("")
   const [endTime, setEndTime] = useState("")
-  const [employeeCount, setEmployeeCount] = useState("")
+  const [requiredCount, setRequiredCount] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   /**
@@ -45,7 +45,7 @@ export function AddShiftForm() {
    */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!date || !startTime || !endTime || !employeeCount) {
+    if (!date || !startTime || !endTime || !requiredCount) {
       toast({
         title: "Error",
         description: "Please fill in all fields",
@@ -63,10 +63,11 @@ export function AddShiftForm() {
         .from('shift_requirements')
         .insert([
           {
-            date: date.toISOString().split('T')[0],
+            name: `Shift on ${date.toLocaleDateString()}`,
+            day_of_week: date.getDay(),
             start_time: startTime,
             end_time: endTime,
-            employees_required: parseInt(employeeCount)
+            required_count: parseInt(requiredCount)
           }
         ])
 
@@ -82,7 +83,7 @@ export function AddShiftForm() {
       setDate(undefined)
       setStartTime("")
       setEndTime("")
-      setEmployeeCount("")
+      setRequiredCount("")
     } catch (error) {
       console.error('Error adding shift requirement:', error)
       toast({
@@ -140,13 +141,13 @@ export function AddShiftForm() {
 
           {/* Employee count input */}
           <div className="space-y-2">
-            <Label htmlFor="employeeCount">Employees Required</Label>
+            <Label htmlFor="requiredCount">Required Employees</Label>
             <Input
-              id="employeeCount"
+              id="requiredCount"
               type="number"
               min="1"
-              value={employeeCount}
-              onChange={(e) => setEmployeeCount(e.target.value)}
+              value={requiredCount}
+              onChange={(e) => setRequiredCount(e.target.value)}
               required
             />
           </div>

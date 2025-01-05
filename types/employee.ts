@@ -49,6 +49,7 @@ export interface Employee {
   created_at?: string
   updated_at?: string
   availability?: Availability[]
+  hasAvailability?: boolean
 }
 
 /**

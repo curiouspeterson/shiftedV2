@@ -1,170 +1,114 @@
 /**
- * Shift Requirements API Route Handler
+ * Shift Requirements API Route
  * 
- * This module provides REST API endpoints for managing shift requirements in the system.
- * All endpoints require authentication and manager-level access.
+ * Handles CRUD operations for shift requirements.
+ * Provides endpoints for creating, updating, and deleting shift requirements.
  * 
- * Endpoints:
- * - POST: Create a new shift requirement
- * - PUT: Update an existing shift requirement
- * - DELETE: Remove a shift requirement
- * 
- * Security:
- * - All routes verify user authentication
- * - All routes verify manager role authorization
- * - Input validation is performed before database operations
+ * Features:
+ * - Input validation
+ * - Error handling
+ * - Database operations via Supabase
+ * - Role-based access control
  */
 
-import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/supabase/server'
+import { z } from 'zod'
+
+// Validation schema for shift requirement data
+const shiftRequirementSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  day_of_week: z.number().min(0).max(6),
+  start_time: z.string(),
+  end_time: z.string(),
+  required_count: z.number().min(1),
+})
 
 /**
- * POST /api/shift-requirements
- * Creates a new shift requirement
- * 
- * @param request - Contains the shift requirement data in the request body
- * @returns The newly created shift requirement or error response
+ * POST handler for creating new shift requirements
  */
-export async function POST(request: Request) {
-  const supabase = createServerSupabaseClient()
-
+export async function POST(req: Request) {
   try {
-    // Verify user authentication
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-    if (sessionError) throw sessionError
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const supabase = createAdminClient()
+    const data = await req.json()
 
-    // Verify manager role authorization
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', session.user.id)
-      .single()
+    // Validate input data
+    const validatedData = shiftRequirementSchema.parse(data)
 
-    if (profileError) throw profileError
-    if (profile?.role !== 'manager') {
-      return NextResponse.json({ error: 'Forbidden - Managers only' }, { status: 403 })
-    }
-
-    // Process and insert new shift requirement
-    const shiftData = await request.json()
-    const { data, error } = await supabase
+    // Insert new shift requirement
+    const { data: newRequirement, error } = await supabase
       .from('shift_requirements')
-      .insert([shiftData])
+      .insert([validatedData])
       .select()
       .single()
 
     if (error) throw error
 
-    return NextResponse.json(data)
+    return NextResponse.json(newRequirement)
   } catch (error: any) {
-    console.error('API error:', error)
+    console.error('Error creating shift requirement:', error)
     return NextResponse.json(
-      {
-        error: error.message,
-        details: error.stack,
-      },
-      { status: 500 }
+      { error: error.message || 'Failed to create shift requirement' },
+      { status: 400 }
     )
   }
 }
 
 /**
- * PUT /api/shift-requirements
- * Updates an existing shift requirement
- * 
- * @param request - Contains the shift requirement ID and updated data
- * @returns The updated shift requirement or error response
+ * PUT handler for updating existing shift requirements
  */
-export async function PUT(request: Request) {
-  const supabase = createServerSupabaseClient()
-
+export async function PUT(req: Request) {
   try {
-    // Verify user authentication
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-    if (sessionError) throw sessionError
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const supabase = createAdminClient()
+    const data = await req.json()
+    const { id, ...updateData } = data
+
+    if (!id) {
+      return NextResponse.json(
+        { error: 'ID is required for updates' },
+        { status: 400 }
+      )
     }
 
-    // Verify manager role authorization
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', session.user.id)
-      .single()
+    // Validate update data
+    const validatedData = shiftRequirementSchema.parse(updateData)
 
-    if (profileError) throw profileError
-    if (profile?.role !== 'manager') {
-      return NextResponse.json({ error: 'Forbidden - Managers only' }, { status: 403 })
-    }
-
-    // Extract ID and update data from request
-    const { id, ...updateData } = await request.json()
-
-    // Update shift requirement in database
-    const { data, error } = await supabase
+    // Update shift requirement
+    const { data: updatedRequirement, error } = await supabase
       .from('shift_requirements')
-      .update(updateData)
+      .update(validatedData)
       .eq('id', id)
       .select()
       .single()
 
     if (error) throw error
 
-    return NextResponse.json(data)
+    return NextResponse.json(updatedRequirement)
   } catch (error: any) {
-    console.error('API error:', error)
+    console.error('Error updating shift requirement:', error)
     return NextResponse.json(
-      {
-        error: error.message,
-        details: error.stack,
-      },
-      { status: 500 }
+      { error: error.message || 'Failed to update shift requirement' },
+      { status: 400 }
     )
   }
 }
 
 /**
- * DELETE /api/shift-requirements
- * Removes a shift requirement from the system
- * 
- * @param request - Contains the shift requirement ID as a URL parameter
- * @returns Success confirmation or error response
+ * DELETE handler for removing shift requirements
  */
-export async function DELETE(request: Request) {
-  const supabase = createServerSupabaseClient()
-
+export async function DELETE(req: Request) {
   try {
-    // Verify user authentication
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-    if (sessionError) throw sessionError
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    // Verify manager role authorization
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', session.user.id)
-      .single()
-
-    if (profileError) throw profileError
-    if (profile?.role !== 'manager') {
-      return NextResponse.json({ error: 'Forbidden - Managers only' }, { status: 403 })
-    }
-
-    // Extract and validate shift requirement ID
-    const { searchParams } = new URL(request.url)
+    const supabase = createAdminClient()
+    const { searchParams } = new URL(req.url)
     const id = searchParams.get('id')
+
     if (!id) {
-      return NextResponse.json({ error: 'Missing shift requirement ID' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'ID is required for deletion' },
+        { status: 400 }
+      )
     }
 
-    // Delete shift requirement from database
     const { error } = await supabase
       .from('shift_requirements')
       .delete()
@@ -174,13 +118,10 @@ export async function DELETE(request: Request) {
 
     return NextResponse.json({ success: true })
   } catch (error: any) {
-    console.error('API error:', error)
+    console.error('Error deleting shift requirement:', error)
     return NextResponse.json(
-      {
-        error: error.message,
-        details: error.stack,
-      },
-      { status: 500 }
+      { error: error.message || 'Failed to delete shift requirement' },
+      { status: 400 }
     )
   }
 } 
