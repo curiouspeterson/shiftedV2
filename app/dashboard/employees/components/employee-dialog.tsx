@@ -64,7 +64,7 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
 
   /**
    * Form submission handler
-   * Creates new employee account with auth and profile
+   * Creates or updates employee account
    * @param event - Form submission event
    */
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -73,56 +73,69 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
       setIsLoading(true)
       const supabase = createClient()
 
-      // Create auth user account with role metadata
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password: 'tempPassword123!', // TODO: Implement secure password generation
-        options: {
-          data: {
+      if (employee) {
+        // Update existing employee
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({
             full_name: fullName,
+            email: email,
             role: role,
+          })
+          .eq('id', employee.id)
+
+        if (updateError) throw updateError
+
+        toast({
+          title: "Success",
+          description: "Employee updated successfully",
+        })
+      } else {
+        // Create new employee
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email,
+          password: 'tempPassword123!', // TODO: Implement secure password generation
+          options: {
+            data: {
+              full_name: fullName,
+              role: role,
+            },
           },
-        },
-      })
+        })
 
-      if (authError) {
-        throw authError
+        if (authError) throw authError
+        if (!authData.user) throw new Error('No user returned from auth signup')
+
+        // Allow time for database trigger to create profile
+        await new Promise(resolve => setTimeout(resolve, 1000))
+
+        // Verify profile creation was successful
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', authData.user.id)
+          .single()
+
+        if (profileError || !profile) {
+          // Cleanup: Remove auth user if profile creation failed
+          await supabase.auth.admin.deleteUser(authData.user.id)
+          throw new Error('Failed to create user profile')
+        }
+
+        toast({
+          title: "Success",
+          description: "Employee created successfully. They will receive an email to set their password.",
+        })
       }
-
-      if (!authData.user) {
-        throw new Error('No user returned from auth signup')
-      }
-
-      // Allow time for database trigger to create profile
-      await new Promise(resolve => setTimeout(resolve, 1000))
-
-      // Verify profile creation was successful
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', authData.user.id)
-        .single()
-
-      if (profileError || !profile) {
-        // Cleanup: Remove auth user if profile creation failed
-        await supabase.auth.admin.deleteUser(authData.user.id)
-        throw new Error('Failed to create user profile')
-      }
-
-      // Show success message and close dialog
-      toast({
-        title: "Success",
-        description: "Employee created successfully. They will receive an email to set their password.",
-      })
       
       onSuccess()
       onOpenChange(false)
     } catch (err) {
-      console.error('Error creating employee:', err)
+      console.error('Error managing employee:', err)
       toast({
         variant: "destructive",
         title: "Error",
-        description: err instanceof Error ? err.message : "Failed to create employee",
+        description: err instanceof Error ? err.message : "Failed to manage employee",
       })
     } finally {
       setIsLoading(false)
@@ -149,6 +162,7 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                disabled={!!employee} // Email can't be changed for existing employees
               />
             </div>
             {/* Full name input field */}
@@ -181,7 +195,7 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
               Cancel
             </Button>
             <Button type="submit" disabled={isLoading}>
-              {isLoading ? 'Creating...' : 'Create Employee'}
+              {isLoading ? (employee ? 'Updating...' : 'Creating...') : (employee ? 'Update' : 'Create')} Employee
             </Button>
           </DialogFooter>
         </form>

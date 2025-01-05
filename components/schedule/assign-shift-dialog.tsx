@@ -23,6 +23,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog"
 import {
   Select,
@@ -34,6 +35,7 @@ import {
 import { toast } from "@/components/ui/use-toast"
 import { type ShiftRequirement } from "@/types/schedule"
 import { type Employee } from "@/types/employee"
+import { Label } from "@/components/ui/label"
 
 /**
  * Props for the AssignShiftDialog component
@@ -248,40 +250,55 @@ export function AssignShiftDialog({
         <DialogHeader>
           <DialogTitle>Assign Shift</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4">
-          {/* Employee selection dropdown */}
-          <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select an employee" />
-            </SelectTrigger>
-            <SelectContent>
-              {employees.map((employee) => (
-                <SelectItem 
-                  key={employee.id} 
-                  value={employee.id}
-                  className={employee.hasAvailability ? '' : 'text-yellow-500'}
-                >
-                  {employee.full_name} {!employee.hasAvailability && '(No availability)'}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {/* Warning if selected employee has no availability */}
-          {selectedEmployeeId && !employees.find(e => e.id === selectedEmployeeId)?.hasAvailability && (
-            <div className="text-sm text-yellow-500">
-              Warning: This employee has not set their availability for this time slot
+
+        {/* Employee selection */}
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label>Select Employee</Label>
+            <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select an employee" />
+              </SelectTrigger>
+              <SelectContent>
+                {employees.length === 0 ? (
+                  <SelectItem value="" disabled>No employees available</SelectItem>
+                ) : (
+                  employees.map((employee) => (
+                    <SelectItem
+                      key={employee.id}
+                      value={employee.id}
+                      disabled={!employee.hasAvailability}
+                    >
+                      {employee.full_name}
+                      {!employee.hasAvailability && " (No availability set)"}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Warning message for no availability */}
+          {employees.length > 0 && employees.every(e => !e.hasAvailability) && (
+            <div className="text-sm text-yellow-600">
+              No employees have set their availability for this time slot.
+              Please have employees set their availability before assigning shifts.
             </div>
           )}
-          {/* Dialog actions */}
-          <div className="flex justify-end space-x-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleAssign} disabled={!selectedEmployeeId || isLoading}>
-              {isLoading ? "Assigning..." : "Assign"}
-            </Button>
-          </div>
         </div>
+
+        {/* Dialog actions */}
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleAssign}
+            disabled={!selectedEmployeeId || isLoading}
+          >
+            {isLoading ? "Assigning..." : "Assign Shift"}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

@@ -22,6 +22,7 @@ import { toast } from "@/components/ui/use-toast"
 import { Button } from "@/components/ui/button"
 import { EmployeeDialog } from './employee-dialog'
 import { type Employee } from "@/types/employee"
+import Link from 'next/link'
 
 /**
  * Employees list component
@@ -40,13 +41,11 @@ export function EmployeesList() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null)
 
   /**
    * Fetches employee data from the database
    * Handles loading states and error handling
-   * 
-   * @returns void
-   * @throws Error if fetch operation fails
    */
   async function fetchEmployees() {
     try {
@@ -60,6 +59,7 @@ export function EmployeesList() {
       const { data, error } = await supabase
         .from('profiles')
         .select('id, full_name, email, role, is_active')
+        .order('full_name')
 
       if (error) {
         console.error('Fetch error:', error)
@@ -79,6 +79,44 @@ export function EmployeesList() {
     } finally {
       setLoading(false)
     }
+  }
+
+  /**
+   * Handles employee deletion
+   * @param employeeId - ID of employee to delete
+   */
+  const handleDelete = async (employeeId: string) => {
+    try {
+      const supabase = createClient()
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', employeeId)
+
+      if (error) throw error
+
+      toast({
+        title: "Success",
+        description: "Employee deleted successfully",
+      })
+      fetchEmployees()
+    } catch (err) {
+      console.error('Error deleting employee:', err)
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to delete employee",
+      })
+    }
+  }
+
+  /**
+   * Opens edit dialog for an employee
+   * @param employee - Employee to edit
+   */
+  const handleEdit = (employee: Employee) => {
+    setSelectedEmployee(employee)
+    setDialogOpen(true)
   }
 
   // Fetch employees on component mount
@@ -110,7 +148,10 @@ export function EmployeesList() {
     <div>
       {/* Add employee button */}
       <div className="flex justify-end mb-4">
-        <Button onClick={() => setDialogOpen(true)}>
+        <Button onClick={() => {
+          setSelectedEmployee(null)
+          setDialogOpen(true)
+        }}>
           Add Employee
         </Button>
       </div>
@@ -123,20 +164,47 @@ export function EmployeesList() {
         ) : (
           <>
             {/* Grid header */}
-            <div className="grid grid-cols-4 gap-4 font-medium">
+            <div className="grid grid-cols-5 gap-4 font-medium p-4 bg-muted rounded-lg">
               <div>Name</div>
               <div>Email</div>
               <div>Role</div>
               <div>Status</div>
+              <div className="text-right">Actions</div>
             </div>
 
             {/* Employee rows */}
             {employees.map((employee) => (
-              <div key={employee.id} className="grid grid-cols-4 gap-4">
+              <div key={employee.id} className="grid grid-cols-5 gap-4 p-4 rounded-lg border items-center">
                 <div>{employee.full_name}</div>
                 <div>{employee.email}</div>
-                <div>{employee.role}</div>
+                <div className="capitalize">{employee.role}</div>
                 <div>{employee.is_active ? 'Active' : 'Inactive'}</div>
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleEdit(employee)}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-destructive"
+                    onClick={() => handleDelete(employee.id)}
+                  >
+                    Delete
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    asChild
+                  >
+                    <Link href={`/dashboard/employees/${employee.id}/availability`}>
+                      Set Availability
+                    </Link>
+                  </Button>
+                </div>
               </div>
             ))}
           </>
@@ -147,7 +215,7 @@ export function EmployeesList() {
       <EmployeeDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        employee={null}
+        employee={selectedEmployee}
         onSuccess={fetchEmployees}
       />
     </div>
