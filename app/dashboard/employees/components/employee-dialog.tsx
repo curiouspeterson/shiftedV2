@@ -42,7 +42,7 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
       setIsLoading(true)
       const supabase = createClient()
 
-      // First create the auth user
+      // Create the auth user with metadata
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password: 'tempPassword123!', // You should generate a random password or handle this better
@@ -62,24 +62,20 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
         throw new Error('No user returned from auth signup')
       }
 
-      // Then create the profile using the auth user's ID
-      const newProfile: Partial<Employee> = {
-        id: authData.user.id,
-        full_name: fullName,
-        email: email,
-        role: role,
-        is_active: true,
-      }
+      // Wait a moment for the trigger to create the profile
+      await new Promise(resolve => setTimeout(resolve, 1000))
 
-      const { error: profileError } = await supabase
+      // Verify the profile was created
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .insert([newProfile])
+        .select('*')
+        .eq('id', authData.user.id)
+        .single()
 
-      if (profileError) {
-        console.error('Error creating profile:', profileError)
-        // Try to clean up the auth user if profile creation fails
+      if (profileError || !profile) {
+        // If profile doesn't exist, clean up the auth user
         await supabase.auth.admin.deleteUser(authData.user.id)
-        throw profileError
+        throw new Error('Failed to create user profile')
       }
 
       toast({
