@@ -2,13 +2,12 @@
  * Dashboard Main Page Component
  * 
  * Client-side component that serves as the main dashboard view.
- * Displays user information and schedule overview.
+ * Displays the employee schedule interface and user information.
  * 
  * Features:
- * - User profile information
+ * - User email display for context
  * - Schedule calendar view
- * - Time off requests overview
- * - Availability overview
+ * - Shift management interface
  * - Responsive grid layout
  */
 
@@ -17,100 +16,52 @@
 import * as React from "react"
 import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { WeeklySchedule } from "@/components/schedule/weekly-schedule"
-import { TimeOffRequestsList } from "@/components/time-off-requests-list"
-import { AvailabilityList } from "@/components/availability-list"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
+import { ScheduleCalendar } from "@/components/schedule-calendar"
+import { AddShiftForm } from "@/components/add-shift-form"
 
-interface Profile {
-  full_name: string
-  role: string
-  email: string
-}
-
+/**
+ * Main dashboard component
+ * Provides schedule management interface and user context
+ */
 export default function DashboardPage() {
-  const [profile, setProfile] = useState<Profile | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  // Track current user's email for display
+  const [userEmail, setUserEmail] = useState<string | null>(null)
 
   useEffect(() => {
-    const getProfile = async () => {
+    /**
+     * Fetches and sets the current user's email
+     * Handles error cases by clearing the email state
+     */
+    const getUserEmail = async () => {
       try {
         const supabase = createClient()
-        const { data: { user }, error: userError } = await supabase.auth.getUser()
-        if (userError) throw userError
-
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user?.id)
-          .single()
-
-        if (profileError) throw profileError
-        setProfile(profile)
+        const { data: { user }, error } = await supabase.auth.getUser()
+        if (error) throw error
+        setUserEmail(user?.email ?? null)
       } catch (error) {
-        console.error('Error fetching profile:', error)
-      } finally {
-        setIsLoading(false)
+        console.error('Error fetching user:', error)
+        setUserEmail(null)
       }
     }
     
-    getProfile()
+    // Fetch user email on component mount
+    getUserEmail()
   }, [])
-
-  if (isLoading) {
-    return (
-      <div className="flex h-[450px] items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    )
-  }
 
   return (
     <div className="space-y-6">
-      {/* Welcome section */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Welcome, {profile?.full_name}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">
-            Role: {profile?.role}
-          </p>
-          <p className="text-muted-foreground">
-            Email: {profile?.email}
-          </p>
-        </CardContent>
-      </Card>
+      {/* Page header with user context */}
+      <h1 className="text-3xl font-bold text-gray-900">Employee Schedule</h1>
+      {userEmail && <p className="text-gray-600">Logged in as: {userEmail}</p>}
       
-      {/* Schedule section */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Your Schedule</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <WeeklySchedule />
-        </CardContent>
-      </Card>
-
-      {/* Time off and availability section */}
+      {/* Main content grid */}
       <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Time Off Requests</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <TimeOffRequestsList />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Your Availability</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <AvailabilityList />
-          </CardContent>
-        </Card>
+        {/* Schedule display and management components */}
+        <ScheduleCalendar />
+        <AddShiftForm />
       </div>
     </div>
   )

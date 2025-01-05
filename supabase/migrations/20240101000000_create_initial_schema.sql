@@ -4,11 +4,31 @@ create table if not exists public.profiles (
     full_name text,
     email text unique,
     role text check (role in ('employee', 'manager')) not null default 'employee',
-    weekly_hour_limit integer not null default 40,
     is_active boolean not null default true,
     created_at timestamp with time zone not null default timezone('utc'::text, now()),
     updated_at timestamp with time zone not null default timezone('utc'::text, now())
 );
+
+-- Create raw update function
+create or replace function public.update_profile_raw(
+  p_id uuid,
+  p_full_name text,
+  p_role text,
+  p_email text
+) returns void
+language plpgsql
+security definer
+as $$
+begin
+  update public.profiles
+  set
+    full_name = p_full_name,
+    role = p_role,
+    email = p_email,
+    updated_at = now()
+  where id = p_id;
+end;
+$$;
 
 -- Create employee_availability table
 create table if not exists public.employee_availability (
@@ -46,11 +66,25 @@ create table if not exists public.shift_assignments (
     constraint unique_shift_assignment unique(profile_id, shift_requirement_id, date)
 );
 
+-- Create time_off_requests table
+create table if not exists public.time_off_requests (
+    id uuid primary key default gen_random_uuid(),
+    profile_id uuid not null references public.profiles(id) on delete cascade,
+    start_date date not null,
+    end_date date not null,
+    reason text,
+    status text not null check (status in ('pending', 'approved', 'rejected')) default 'pending',
+    created_at timestamp with time zone not null default timezone('utc'::text, now()),
+    updated_at timestamp with time zone not null default timezone('utc'::text, now()),
+    constraint unique_time_off_request unique(profile_id, start_date, end_date)
+);
+
 -- Enable RLS on all tables
 alter table public.profiles enable row level security;
 alter table public.employee_availability enable row level security;
 alter table public.shift_requirements enable row level security;
 alter table public.shift_assignments enable row level security;
+alter table public.time_off_requests enable row level security;
 
 -- RLS policies for profiles
 create policy "Users can view their own profile" on public.profiles for select using (auth.uid() = id);
@@ -84,13 +118,12 @@ language plpgsql
 security definer set search_path = public
 as $$
 begin
-    insert into public.profiles (id, full_name, email, role, weekly_hour_limit, is_active)
+    insert into public.profiles (id, full_name, email, role, is_active)
     values (
         new.id,
         coalesce(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)),
         new.email,
         coalesce(new.raw_user_meta_data->>'role', 'employee'),
-        coalesce((new.raw_user_meta_data->>'weekly_hour_limit')::integer, 40),
         true
     );
     return new;
@@ -118,3 +151,14 @@ $$;
 create trigger update_profiles_updated_at before update on public.profiles for each row execute function public.update_updated_at();
 create trigger update_shift_requirements_updated_at before update on public.shift_requirements for each row execute function public.update_updated_at();
 create trigger update_shift_assignments_updated_at before update on public.shift_assignments for each row execute function public.update_updated_at();
+
+-- Enable RLS on time_off_requests table
+alter table public.time_off_requests enable row level security;
+
+-- RLS policies for time_off_requests
+create policy "Users can view own time off requests" on public.time_off_requests for select using (auth.uid() = profile_id);
+create policy "Users can insert own time off requests" on public.time_off_requests for insert with check (auth.uid() = profile_id);
+create policy "Users can update own time off requests" on public.time_off_requests for update using (auth.uid() = profile_id);
+create policy "Users can delete own time off requests" on public.time_off_requests for delete using (auth.uid() = profile_id);
+create policy "Managers can view all time off requests" on public.time_off_requests for select using (exists (select 1 from public.profiles where id = auth.uid() and role = 'manager'));
+create policy "Managers can manage all time off requests" on public.time_off_requests for all using (exists (select 1 from public.profiles where id = auth.uid() and role = 'manager'));

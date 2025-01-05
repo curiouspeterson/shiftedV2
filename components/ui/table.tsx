@@ -1,7 +1,27 @@
+/**
+ * Table Component Module
+ * 
+ * A collection of table-related components built with React and Tailwind CSS.
+ * Provides a complete set of accessible, styled table components for building
+ * data tables and similar tabular interfaces.
+ * 
+ * Features:
+ * - Responsive table layout
+ * - Accessible table structure
+ * - Consistent styling with Tailwind CSS
+ * - Support for table headers, footers, and captions
+ * 
+ * @module
+ */
+
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Main table component
+ * Renders a responsive table with consistent styling
+ */
 const Table = React.forwardRef<
   HTMLTableElement,
   React.HTMLAttributes<HTMLTableElement>
@@ -16,6 +36,10 @@ const Table = React.forwardRef<
 ))
 Table.displayName = "Table"
 
+/**
+ * Table header component
+ * Renders a styled table header section
+ */
 const TableHeader = React.forwardRef<
   HTMLTableSectionElement,
   React.HTMLAttributes<HTMLTableSectionElement>
@@ -24,6 +48,10 @@ const TableHeader = React.forwardRef<
 ))
 TableHeader.displayName = "TableHeader"
 
+/**
+ * Table body component
+ * Renders the main content section of the table
+ */
 const TableBody = React.forwardRef<
   HTMLTableSectionElement,
   React.HTMLAttributes<HTMLTableSectionElement>
@@ -36,6 +64,10 @@ const TableBody = React.forwardRef<
 ))
 TableBody.displayName = "TableBody"
 
+/**
+ * Table footer component
+ * Renders a styled footer section with summary information
+ */
 const TableFooter = React.forwardRef<
   HTMLTableSectionElement,
   React.HTMLAttributes<HTMLTableSectionElement>
@@ -51,6 +83,29 @@ const TableFooter = React.forwardRef<
 ))
 TableFooter.displayName = "TableFooter"
 
+/**
+ * Table head cell component
+ * Renders a header cell with appropriate styling
+ */
+const TableHead = React.forwardRef<
+  HTMLTableCellElement,
+  React.ThHTMLAttributes<HTMLTableCellElement>
+>(({ className, ...props }, ref) => (
+  <th
+    ref={ref}
+    className={cn(
+      "h-10 px-2 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
+      className
+    )}
+    {...props}
+  />
+))
+TableHead.displayName = "TableHead"
+
+/**
+ * Table row component
+ * Renders a table row with hover effects and borders
+ */
 const TableRow = React.forwardRef<
   HTMLTableRowElement,
   React.HTMLAttributes<HTMLTableRowElement>
@@ -66,33 +121,29 @@ const TableRow = React.forwardRef<
 ))
 TableRow.displayName = "TableRow"
 
-const TableHead = React.forwardRef<
-  HTMLTableCellElement,
-  React.ThHTMLAttributes<HTMLTableCellElement>
->(({ className, ...props }, ref) => (
-  <th
-    ref={ref}
-    className={cn(
-      "h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0",
-      className
-    )}
-    {...props}
-  />
-))
-TableHead.displayName = "TableHead"
-
+/**
+ * Table cell component
+ * Renders a standard table cell with consistent padding
+ */
 const TableCell = React.forwardRef<
   HTMLTableCellElement,
   React.TdHTMLAttributes<HTMLTableCellElement>
 >(({ className, ...props }, ref) => (
   <td
     ref={ref}
-    className={cn("p-4 align-middle [&:has([role=checkbox])]:pr-0", className)}
+    className={cn(
+      "p-2 align-middle [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
+      className
+    )}
     {...props}
   />
 ))
 TableCell.displayName = "TableCell"
 
+/**
+ * Table caption component
+ * Renders a descriptive caption below the table
+ */
 const TableCaption = React.forwardRef<
   HTMLTableCaptionElement,
   React.HTMLAttributes<HTMLTableCaptionElement>

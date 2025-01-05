@@ -1,8 +1,33 @@
+/**
+ * Badge Component
+ * 
+ * A reusable badge component that displays small labels, tags, or status indicators.
+ * Provides multiple visual variants and customizable styling through class-variance-authority.
+ * 
+ * Features:
+ * - Multiple predefined variants (default, secondary, destructive, outline)
+ * - Consistent styling with rounded corners and focus states
+ * - Customizable through className prop
+ * - Fully typed with TypeScript
+ * - Accessible focus handling
+ */
+
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Badge variants configuration using class-variance-authority
+ * Defines the base styles and variants for the badge component
+ * 
+ * Base styles include:
+ * - Inline flex display
+ * - Rounded full corners
+ * - Consistent padding
+ * - Small text size
+ * - Focus ring styling
+ */
 const badgeVariants = cva(
   "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
   {
@@ -23,10 +48,22 @@ const badgeVariants = cva(
   }
 )
 
+/**
+ * Badge component props interface
+ * Extends HTML div element props and variant props from badgeVariants
+ */
 export interface BadgeProps
   extends React.HTMLAttributes<HTMLDivElement>,
     VariantProps<typeof badgeVariants> {}
 
+/**
+ * Badge component
+ * Renders a styled div element with variant-based styling
+ * 
+ * @param className - Additional CSS classes to apply
+ * @param variant - Visual variant of the badge
+ * @param props - Additional HTML div props
+ */
 function Badge({ className, variant, ...props }: BadgeProps) {
   return (
     <div className={cn(badgeVariants({ variant }), className)} {...props} />

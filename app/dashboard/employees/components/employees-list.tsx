@@ -1,187 +1,220 @@
+/**
+ * Employees List Component
+ * 
+ * Component for displaying and managing a list of employees.
+ * Provides real-time updates and employee management functionality.
+ * 
+ * Features:
+ * - Real-time employee list
+ * - Add new employees
+ * - View employee details
+ * - Loading states
+ * - Error handling
+ * - Empty state handling
+ * - Grid layout display
+ */
+
 "use client"
 
-import * as React from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Plus } from "lucide-react"
-import { createClient } from "@/lib/supabase/client"
+import { useEffect, useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import { toast } from "@/components/ui/use-toast"
+import { Button } from "@/components/ui/button"
+import { EmployeeDialog } from './employee-dialog'
 import { type Employee } from "@/types/employee"
-import { EmployeeDialog } from "./employee-dialog"
-import { format } from "date-fns"
+import Link from 'next/link'
 
-const DAYS_OF_WEEK = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-]
-
+/**
+ * Employees list component
+ * Manages employee data display and interactions
+ * 
+ * Features:
+ * - Employee data fetching
+ * - Add employee dialog
+ * - Error state handling
+ * - Loading state display
+ * - Grid layout presentation
+ */
 export function EmployeesList() {
-  const [employees, setEmployees] = React.useState<Employee[]>([])
-  const [isLoading, setIsLoading] = React.useState(true)
-  const [isDialogOpen, setIsDialogOpen] = React.useState(false)
-  const [selectedEmployee, setSelectedEmployee] = React.useState<Employee | null>(null)
+  // State management
+  const [employees, setEmployees] = useState<Employee[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null)
 
-  React.useEffect(() => {
-    fetchEmployees()
-  }, [])
-
-  const fetchEmployees = async () => {
-    setIsLoading(true)
+  /**
+   * Fetches employee data from the database
+   * Handles loading states and error handling
+   */
+  async function fetchEmployees() {
     try {
+      setLoading(true)
+      setError(null)
+      
       const supabase = createClient()
+      console.log('Fetching employees...')
       
-      // Fetch all active employees from the profiles table
-      const { data: employeesData, error: employeesError } = await supabase
-        .from("profiles")
-        .select("*")
-        .order("full_name")
+      // Fetch employee profiles
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, role, is_active')
+        .order('full_name')
 
-      if (employeesError) throw employeesError
+      if (error) {
+        console.error('Fetch error:', error)
+        throw error
+      }
 
-      // Fetch all availability records
-      const { data: availabilityData, error: availabilityError } = await supabase
-        .from("employee_availability")
-        .select("*")
-
-      if (availabilityError) throw availabilityError
-      
-      // Combine employee data with their availability
-      const formattedData = employeesData.map(employee => ({
-        ...employee,
-        availability: availabilityData.filter(
-          availability => availability.profile_id === employee.id
-        )
-      })) as Employee[]
-      
-      setEmployees(formattedData)
-    } catch (error) {
-      console.error("Error fetching employees:", error)
+      console.log('Fetch successful:', data)
+      setEmployees(data || [])
+    } catch (err) {
+      console.error('Error:', err)
+      setError(err instanceof Error ? err.message : 'Failed to fetch employees')
       toast({
         variant: "destructive",
         title: "Error",
-        description: "An unexpected error occurred. Please try again.",
+        description: "Failed to fetch employees",
       })
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
-  const handleAddEmployee = () => {
-    setSelectedEmployee(null)
-    setIsDialogOpen(true)
-  }
-
-  const handleEditEmployee = (employee: Employee) => {
-    setSelectedEmployee(employee)
-    setIsDialogOpen(true)
-  }
-
-  const handleDeleteEmployee = async (employeeId: string) => {
+  /**
+   * Handles employee deletion
+   * @param employeeId - ID of employee to delete
+   */
+  const handleDelete = async (employeeId: string) => {
     try {
       const supabase = createClient()
       const { error } = await supabase
-        .from("profiles")
+        .from('profiles')
         .delete()
-        .eq("id", employeeId)
+        .eq('id', employeeId)
 
-      if (error) {
-        console.error("Error deleting employee:", error)
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to delete employee. Please try again.",
-        })
-      } else {
-        toast({
-          title: "Success",
-          description: "Employee deleted successfully.",
-        })
-        fetchEmployees()
-      }
-    } catch (error) {
-      console.error("Error deleting employee:", error)
+      if (error) throw error
+
+      toast({
+        title: "Success",
+        description: "Employee deleted successfully",
+      })
+      fetchEmployees()
+    } catch (err) {
+      console.error('Error deleting employee:', err)
       toast({
         variant: "destructive",
         title: "Error",
-        description: "An unexpected error occurred. Please try again.",
+        description: "Failed to delete employee",
       })
     }
   }
 
-  const formatTime = (time: string) => {
-    return format(new Date(`2000-01-01T${time}`), "h:mm a")
+  /**
+   * Opens edit dialog for an employee
+   * @param employee - Employee to edit
+   */
+  const handleEdit = (employee: Employee) => {
+    setSelectedEmployee(employee)
+    setDialogOpen(true)
   }
 
-  if (isLoading) {
+  // Fetch employees on component mount
+  useEffect(() => {
+    fetchEmployees()
+  }, [])
+
+  // Show loading state
+  if (loading) {
+    return <div>Loading employees...</div>
+  }
+
+  // Show error state with retry option
+  if (error) {
     return (
-      <div className="flex h-[450px] items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      <div className="text-red-500">
+        Error: {error}
+        <button 
+          onClick={fetchEmployees}
+          className="ml-2 text-blue-500 hover:underline"
+        >
+          Retry
+        </button>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-end">
-        <Button onClick={handleAddEmployee}>
-          <Plus className="h-4 w-4 mr-2" />
+    <div>
+      {/* Add employee button */}
+      <div className="flex justify-end mb-4">
+        <Button onClick={() => {
+          setSelectedEmployee(null)
+          setDialogOpen(true)
+        }}>
           Add Employee
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {employees.map((employee) => (
-          <Card key={employee.id}>
-            <CardContent className="p-6">
-              <div className="space-y-2">
-                <h3 className="font-semibold">{employee.full_name}</h3>
-                <p className="text-sm text-muted-foreground">{employee.email}</p>
-                <p className="text-sm text-muted-foreground capitalize">{employee.role}</p>
-                {employee.availability?.length > 0 && (
-                  <div className="mt-4">
-                    <h4 className="text-sm font-medium mb-2">Availability</h4>
-                    <div className="space-y-1">
-                      {employee.availability
-                        .sort((a, b) => a.day_of_week - b.day_of_week)
-                        .map((slot) => (
-                          <p key={slot.id} className="text-sm text-muted-foreground">
-                            {DAYS_OF_WEEK[slot.day_of_week]}: {formatTime(slot.start_time)} - {formatTime(slot.end_time)}
-                          </p>
-                        ))}
-                    </div>
-                  </div>
-                )}
+      {/* Employee list grid */}
+      <div className="space-y-4">
+        {employees.length === 0 ? (
+          // Empty state message
+          <div>No employees found</div>
+        ) : (
+          <>
+            {/* Grid header */}
+            <div className="grid grid-cols-5 gap-4 font-medium p-4 bg-muted rounded-lg">
+              <div>Name</div>
+              <div>Email</div>
+              <div>Role</div>
+              <div>Status</div>
+              <div className="text-right">Actions</div>
+            </div>
+
+            {/* Employee rows */}
+            {employees.map((employee) => (
+              <div key={employee.id} className="grid grid-cols-5 gap-4 p-4 rounded-lg border items-center">
+                <div>{employee.full_name}</div>
+                <div>{employee.email}</div>
+                <div className="capitalize">{employee.role}</div>
+                <div>{employee.is_active ? 'Active' : 'Inactive'}</div>
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleEdit(employee)}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-destructive"
+                    onClick={() => handleDelete(employee.id)}
+                  >
+                    Delete
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    asChild
+                  >
+                    <Link href={`/dashboard/employees/${employee.id}/availability`}>
+                      Set Availability
+                    </Link>
+                  </Button>
+                </div>
               </div>
-              <div className="mt-4 space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleEditEmployee(employee)}
-                >
-                  Edit
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-destructive"
-                  onClick={() => handleDeleteEmployee(employee.id)}
-                >
-                  Delete
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+            ))}
+          </>
+        )}
       </div>
 
+      {/* Add/edit employee dialog */}
       <EmployeeDialog
-        open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
         employee={selectedEmployee}
         onSuccess={fetchEmployees}
       />

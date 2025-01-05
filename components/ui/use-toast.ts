@@ -1,3 +1,17 @@
+/**
+ * Toast Management System
+ * 
+ * A comprehensive toast notification management system that provides:
+ * - Global toast state management without external state libraries
+ * - Toast creation, updating, and dismissal functionality
+ * - Automatic cleanup of dismissed toasts
+ * - Type-safe toast configuration
+ * - Custom toast actions and styling support
+ * 
+ * The system uses an internal state management approach with reducers and listeners
+ * to maintain toast state across the application while remaining lightweight.
+ */
+
 "use client"
 
 import * as React from "react"
@@ -7,9 +21,14 @@ import type {
   ToastProps,
 } from "@/components/ui/toast"
 
-const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 1000000
+// Configuration constants
+const TOAST_LIMIT = 1 // Maximum number of toasts shown simultaneously
+const TOAST_REMOVE_DELAY = 1000000 // Delay before removing dismissed toasts
 
+/**
+ * Core toast type definition extending base toast props with
+ * required fields for internal management
+ */
 type ToasterToast = ToastProps & {
   id: string
   title?: React.ReactNode
@@ -17,6 +36,10 @@ type ToasterToast = ToastProps & {
   action?: ToastActionElement
 }
 
+/**
+ * Action types for toast state management
+ * Defines all possible operations on toast state
+ */
 const actionTypes = {
   ADD_TOAST: "ADD_TOAST",
   UPDATE_TOAST: "UPDATE_TOAST",
@@ -24,6 +47,10 @@ const actionTypes = {
   REMOVE_TOAST: "REMOVE_TOAST",
 } as const
 
+/**
+ * ID Generation System
+ * Provides unique IDs for toast instances
+ */
 let count = 0
 
 function genId() {
@@ -31,12 +58,20 @@ function genId() {
   return count.toString()
 }
 
+/**
+ * Action type definition for the reducer
+ * Ensures type safety for all toast operations
+ */
 type ActionType = {
   type: typeof actionTypes[keyof typeof actionTypes]
   toast?: ToasterToast
   toastId?: string
 }
 
+/**
+ * Toast Cleanup Management
+ * Handles the queuing and execution of toast removal operations
+ */
 const toastTimeouts = new Map<string, ReturnType<typeof setTimeout>>()
 
 const addToRemoveQueue = (toastId: string) => {
@@ -55,6 +90,11 @@ const addToRemoveQueue = (toastId: string) => {
   toastTimeouts.set(toastId, timeout)
 }
 
+/**
+ * Toast State Reducer
+ * Handles all state transitions for the toast system
+ * Implements the core logic for adding, updating, dismissing and removing toasts
+ */
 export const reducer = (state: State, action: ActionType): State => {
   switch (action.type) {
     case actionTypes.ADD_TOAST:
@@ -109,6 +149,10 @@ export const reducer = (state: State, action: ActionType): State => {
   }
 }
 
+/**
+ * State Management System
+ * Implements a lightweight pub/sub pattern for managing toast state
+ */
 const listeners: Array<(state: State) => void> = []
 
 let memoryState: State = { toasts: [] }
@@ -120,6 +164,10 @@ function dispatch(action: ActionType) {
   })
 }
 
+/**
+ * Toast Creation and Management API
+ * Provides the public interface for creating and managing toasts
+ */
 type Toast = Omit<ToasterToast, "id">
 
 function toast({ ...props }: Toast) {
@@ -151,6 +199,10 @@ function toast({ ...props }: Toast) {
   }
 }
 
+/**
+ * Hook Configuration and State Types
+ * Defines the interface for the useToast hook
+ */
 type UseToastOptions = {
   onDismiss?: (toastId: string) => void
 }
@@ -159,6 +211,11 @@ interface State {
   toasts: ToasterToast[]
 }
 
+/**
+ * useToast Hook
+ * Custom hook that provides access to toast state and toast management functions
+ * Handles subscription to toast state changes and cleanup
+ */
 function useToast(options: UseToastOptions = {}) {
   const [state, setState] = React.useState<State>(memoryState)
 
@@ -179,4 +236,4 @@ function useToast(options: UseToastOptions = {}) {
   }
 }
 
-export { useToast, toast } 
+export { useToast, toast }

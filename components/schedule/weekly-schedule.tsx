@@ -1,15 +1,30 @@
+/**
+ * Weekly Schedule Component
+ * 
+ * A comprehensive component for displaying and managing weekly shift schedules.
+ * Provides a calendar-like interface for viewing and assigning shifts across a week.
+ * 
+ * Features:
+ * - Weekly calendar view
+ * - Shift requirement display
+ * - Employee assignment management
+ * - Week navigation
+ * - Loading states
+ * - Error handling
+ * - Real-time updates
+ */
+
 "use client"
 
 import { useState, useEffect } from "react"
-import { format, addDays, startOfWeek, parse } from "date-fns"
+import { format, addDays, startOfWeek } from "date-fns"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { ChevronLeft, ChevronRight, Trash2 } from "lucide-react"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "@/components/ui/use-toast"
 import { type WeeklySchedule, type ShiftRequirement, type ShiftAssignment } from "@/types/schedule"
 import { AssignShiftDialog } from "./assign-shift-dialog"
-import Link from "next/link"
 
 /**
  * Extended shift assignment interface with profile information
@@ -17,7 +32,7 @@ import Link from "next/link"
  */
 interface ScheduleAssignment extends ShiftAssignment {
   profile: {
-    full_name: string | null
+    full_name: string
   }
 }
 
@@ -28,8 +43,8 @@ interface ScheduleAssignment extends ShiftAssignment {
 export function WeeklySchedule() {
   // State management
   const [weekStart, setWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 0 }))
-  const [schedule, setSchedule] = useState<WeeklyScheduleType>({})
-  const [shiftRequirements, setShiftRequirements] = useState<ShiftRequirement[]>([])
+  const [schedule, setSchedule] = useState<WeeklySchedule>({})
+  const [requirements, setRequirements] = useState<ShiftRequirement[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedRequirement, setSelectedRequirement] = useState<ShiftRequirement | null>(null)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
@@ -37,6 +52,7 @@ export function WeeklySchedule() {
   // Fetch schedule and requirements on week change
   useEffect(() => {
     fetchSchedule()
+    fetchRequirements()
   }, [weekStart])
 
   /**
@@ -55,13 +71,16 @@ export function WeeklySchedule() {
       if (error) throw error
 
       // Group assignments by date
-      const groupedSchedule: WeeklyScheduleType = {}
-      assignments?.forEach((assignment) => {
+      const groupedSchedule: WeeklySchedule = {}
+      assignments?.forEach((assignment: ScheduleAssignment) => {
         const date = assignment.date
         if (!groupedSchedule[date]) {
           groupedSchedule[date] = []
         }
-        groupedSchedule[date].push(assignment as ShiftAssignmentWithProfile)
+        groupedSchedule[date].push({
+          ...assignment,
+          employee_name: assignment.profile.full_name,
+        })
       })
 
       setSchedule(groupedSchedule)
@@ -84,14 +103,14 @@ export function WeeklySchedule() {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('shift_requirements')
-        .select()
+        .select('*')
         .order('day_of_week')
         .order('start_time')
 
       if (error) throw error
-      setShiftRequirements(data || [])
+      setRequirements(data || [])
     } catch (error) {
-      console.error('Error fetching shift requirements:', error)
+      console.error('Error fetching requirements:', error)
       toast({
         variant: "destructive",
         title: "Error",
@@ -142,22 +161,14 @@ export function WeeklySchedule() {
     <div className="space-y-4">
       {/* Week navigation header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setWeekStart(addDays(weekStart, -7))}
-          >
+        <h2 className="text-lg font-medium">
+          Week of {format(weekStart, 'MMMM d, yyyy')}
+        </h2>
+        <div className="flex space-x-2">
+          <Button variant="outline" size="icon" onClick={handlePreviousWeek}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="font-medium">
-            Week of {format(weekStart, 'MMMM d, yyyy')}
-          </span>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setWeekStart(addDays(weekStart, 7))}
-          >
+          <Button variant="outline" size="icon" onClick={handleNextWeek}>
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
@@ -173,49 +184,52 @@ export function WeeklySchedule() {
           )
 
           return (
-            <Link key={dateStr} href={`/dashboard/schedule/${dateStr}`}>
-              <Card className="h-full transition-colors hover:bg-accent/50">
-                <CardContent className="p-4">
-                  <h3 className="font-medium">{format(date, 'EEEE')}</h3>
-                  <p className="text-sm text-gray-500">{format(date, 'MMM d')}</p>
-                  <div className="mt-4 space-y-2">
-                    {dayRequirements.map(req => {
-                      const assignedEmployees = schedule[dateStr]?.filter(
-                        shift => shift.shift_requirement_id === req.id
-                      ) || []
+            <Card key={dateStr}>
+              <CardContent className="p-4">
+                {/* Day header */}
+                <h3 className="font-medium">{format(date, 'EEEE')}</h3>
+                <p className="text-sm text-gray-500">{format(date, 'MMM d')}</p>
+                {/* Shift requirements */}
+                <div className="mt-4 space-y-2">
+                  {dayRequirements.map(req => {
+                    const assignedEmployees = schedule[dateStr]?.filter(
+                      shift => shift.shift_requirement_id === req.id
+                    ) || []
 
-                      return (
-                        <div
-                          key={req.id}
-                          className="rounded-lg border p-2 text-sm"
-                          onClick={(e) => {
-                            e.preventDefault()
-                            setSelectedRequirement(req)
-                            setSelectedDate(dateStr)
-                          }}
-                        >
-                          <p className="font-medium">
-                            {formatTime(req.start_time)} - {formatTime(req.end_time)}
-                          </p>
-                          <div className="mt-1 space-y-1">
-                            {assignedEmployees.map(assignment => (
-                              <p key={assignment.id} className="text-gray-500">
-                                {assignment.employee_name}
-                              </p>
-                            ))}
-                            {assignedEmployees.length < req.required_count && (
-                              <p className="text-yellow-500">
-                                Need {req.required_count - assignedEmployees.length} more
-                              </p>
-                            )}
-                          </div>
+                    return (
+                      <div
+                        key={req.id}
+                        className="rounded-lg border p-2 text-sm"
+                        role="button"
+                        onClick={() => {
+                          setSelectedRequirement(req)
+                          setSelectedDate(dateStr)
+                        }}
+                      >
+                        {/* Shift time */}
+                        <p className="font-medium">
+                          {formatTime(req.start_time)} - {formatTime(req.end_time)}
+                        </p>
+                        {/* Assigned employees */}
+                        <div className="mt-1 space-y-1">
+                          {assignedEmployees.map(assignment => (
+                            <p key={assignment.id} className="text-gray-500">
+                              {assignment.employee_name}
+                            </p>
+                          ))}
+                          {/* Staffing needs indicator */}
+                          {assignedEmployees.length < req.required_count && (
+                            <p className="text-yellow-500">
+                              Need {req.required_count - assignedEmployees.length} more
+                            </p>
+                          )}
                         </div>
-                      )
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
+                      </div>
+                    )
+                  })}
+                </div>
+              </CardContent>
+            </Card>
           )
         })}
       </div>

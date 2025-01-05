@@ -1,3 +1,20 @@
+/**
+ * Employees Component
+ * 
+ * A comprehensive component for managing employee data.
+ * Provides functionality for viewing, adding, editing, and deleting employees.
+ * 
+ * Features:
+ * - Employee list display
+ * - Add new employee
+ * - Edit existing employee
+ * - Delete employee
+ * - Loading states
+ * - Error handling
+ * - Real-time feedback
+ * - Responsive grid layout
+ */
+
 "use client"
 
 import * as React from "react"
@@ -9,16 +26,26 @@ import { toast } from "@/components/ui/use-toast"
 import { type Employee } from "@/types/employee"
 import { EmployeeDialog } from "@/app/dashboard/employees/components/employee-dialog"
 
+/**
+ * Employees component
+ * Manages the display and operations for employee data
+ */
 export function Employees() {
+  // State management
   const [employees, setEmployees] = React.useState<Employee[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
   const [selectedEmployee, setSelectedEmployee] = React.useState<Employee | null>(null)
 
+  // Fetch employees on component mount
   React.useEffect(() => {
     fetchEmployees()
   }, [])
 
+  /**
+   * Fetches employee data from the database
+   * Includes related availability information
+   */
   const fetchEmployees = async () => {
     try {
       setIsLoading(true)
@@ -45,16 +72,28 @@ export function Employees() {
     }
   }
 
+  /**
+   * Opens dialog for adding a new employee
+   * Resets selected employee state
+   */
   const handleAddEmployee = () => {
     setSelectedEmployee(null)
     setIsDialogOpen(true)
   }
 
+  /**
+   * Opens dialog for editing an existing employee
+   * @param employee - Employee data to edit
+   */
   const handleEditEmployee = (employee: Employee) => {
     setSelectedEmployee(employee)
     setIsDialogOpen(true)
   }
 
+  /**
+   * Deletes an employee from the database
+   * @param employeeId - ID of employee to delete
+   */
   const handleDeleteEmployee = async (employeeId: string) => {
     try {
       const supabase = createClient()
@@ -80,6 +119,7 @@ export function Employees() {
     }
   }
 
+  // Show loading spinner while fetching data
   if (isLoading) {
     return (
       <div className="flex h-[450px] items-center justify-center">
@@ -90,6 +130,7 @@ export function Employees() {
 
   return (
     <div className="space-y-6">
+      {/* Add employee button */}
       <div className="flex justify-end">
         <Button onClick={handleAddEmployee}>
           <Plus className="h-4 w-4 mr-2" />
@@ -97,15 +138,18 @@ export function Employees() {
         </Button>
       </div>
 
+      {/* Employee grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {employees.map((employee) => (
           <Card key={employee.id}>
             <CardContent className="p-4">
+              {/* Employee details */}
               <div className="space-y-2">
                 <h3 className="font-medium">{employee.full_name}</h3>
                 <p className="text-sm text-gray-500">{employee.email}</p>
                 <p className="text-sm text-gray-500 capitalize">{employee.role}</p>
               </div>
+              {/* Action buttons */}
               <div className="mt-4 space-x-2">
                 <Button
                   variant="outline"
@@ -128,6 +172,7 @@ export function Employees() {
         ))}
       </div>
 
+      {/* Employee dialog for add/edit */}
       <EmployeeDialog
         open={isDialogOpen}
         onOpenChange={setIsDialogOpen}

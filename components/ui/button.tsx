@@ -1,9 +1,45 @@
+/**
+ * Button Component Module
+ * 
+ * A flexible button component with multiple variants and sizes.
+ * Built with React and styled using Tailwind CSS and class-variance-authority.
+ * 
+ * Features:
+ * - Multiple visual variants (default, destructive, outline, secondary, ghost, link)
+ * - Different size options (default, sm, lg, icon)
+ * - Support for icons and text content
+ * - Accessible focus states
+ * - Disabled state styling
+ * - Polymorphic component support through asChild prop
+ * - Consistent styling with design system
+ * 
+ * @module
+ */
+
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Button variants configuration
+ * Defines the different visual styles and sizes available for the button component
+ * 
+ * Variants:
+ * - default: Primary action button
+ * - destructive: For dangerous or destructive actions
+ * - outline: Bordered button with hover effect
+ * - secondary: Alternative styling
+ * - ghost: No background until hover
+ * - link: Appears as a text link
+ * 
+ * Sizes:
+ * - default: Standard size
+ * - sm: Compact size
+ * - lg: Large size
+ * - icon: Square button for icons
+ */
 const buttonVariants = cva(
   "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
@@ -34,12 +70,38 @@ const buttonVariants = cva(
   }
 )
 
+/**
+ * Button component props interface
+ * Extends standard button props with variant and size options
+ * 
+ * @property {boolean} asChild - When true, button will render its children as the root element
+ * @property {string} variant - Visual style variant
+ * @property {string} size - Size variant
+ */
 export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean
 }
 
+/**
+ * Button component
+ * Renders a button element with configurable styling and behavior
+ * 
+ * @component
+ * @example
+ * // Default button
+ * <Button>Click me</Button>
+ * 
+ * // Destructive button with icon
+ * <Button variant="destructive" size="lg">
+ *   <TrashIcon />
+ *   Delete
+ * </Button>
+ * 
+ * // Link style button
+ * <Button variant="link">Learn more</Button>
+ */
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, ...props }, ref) => {
     const Comp = asChild ? Slot : "button"

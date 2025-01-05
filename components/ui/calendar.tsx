@@ -1,3 +1,20 @@
+/**
+ * Calendar Component Module
+ * 
+ * A customized calendar component built on top of react-day-picker.
+ * Provides a styled, accessible calendar interface with support for
+ * date selection, range selection, and custom styling.
+ * 
+ * Features:
+ * - Single date selection
+ * - Date range selection
+ * - Custom day styling
+ * - Keyboard navigation
+ * - Screen reader support
+ * - Responsive design
+ * - Customizable locale
+ */
+
 "use client"
 
 import * as React from "react"
@@ -7,8 +24,25 @@ import { DayPicker } from "react-day-picker"
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
 
+/**
+ * Props for the Calendar component
+ * Extends DayPicker props to allow for additional customization
+ */
 export type CalendarProps = React.ComponentProps<typeof DayPicker>
 
+/**
+ * Calendar component
+ * A styled calendar interface for date selection
+ * 
+ * @component
+ * @example
+ * <Calendar
+ *   mode="single"
+ *   selected={date}
+ *   onSelect={setDate}
+ *   className="rounded-md border"
+ * />
+ */
 function Calendar({
   className,
   classNames,
@@ -46,7 +80,7 @@ function Calendar({
           "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
         day_today: "bg-accent text-accent-foreground",
         day_outside:
-          "day-outside text-muted-foreground aria-selected:bg-accent/50 aria-selected:text-muted-foreground",
+          "day-outside text-muted-foreground opacity-50 aria-selected:bg-accent/50 aria-selected:text-muted-foreground aria-selected:opacity-30",
         day_disabled: "text-muted-foreground opacity-50",
         day_range_middle:
           "aria-selected:bg-accent aria-selected:text-accent-foreground",
@@ -54,12 +88,8 @@ function Calendar({
         ...classNames,
       }}
       components={{
-        IconLeft: ({ className, ...props }) => (
-          <ChevronLeft className={cn("h-4 w-4", className)} {...props} />
-        ),
-        IconRight: ({ className, ...props }) => (
-          <ChevronRight className={cn("h-4 w-4", className)} {...props} />
-        ),
+        IconLeft: ({ ...props }) => <ChevronLeft className="h-4 w-4" />,
+        IconRight: ({ ...props }) => <ChevronRight className="h-4 w-4" />,
       }}
       {...props}
     />

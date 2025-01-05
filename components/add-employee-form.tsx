@@ -1,3 +1,21 @@
+/**
+ * Add Employee Form Component
+ * 
+ * Form component for adding new employees to the system.
+ * Handles user creation in Auth and profile creation in the database.
+ * 
+ * Features:
+ * - Email and full name input
+ * - Role selection (employee/manager)
+ * - Weekly hour limit setting
+ * - Automatic password generation
+ * - Email verification flow
+ * - Form validation
+ * - Loading states
+ * - Error handling
+ * - Success notifications
+ */
+
 "use client"
 
 import { useState } from "react"
@@ -9,6 +27,13 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/components/ui/use-toast"
 
+/**
+ * Form data structure for adding a new employee
+ * @property email - Employee's email address
+ * @property fullName - Employee's full name
+ * @property role - Employee's role (employee/manager)
+ * @property weeklyHourLimit - Maximum weekly working hours
+ */
 interface AddEmployeeFormData {
   email: string
   fullName: string
@@ -16,8 +41,13 @@ interface AddEmployeeFormData {
   weeklyHourLimit: number
 }
 
+/**
+ * Add employee form component
+ * Manages form state and submission for new employees
+ */
 export function AddEmployeeForm() {
   const router = useRouter()
+  // State management
   const [isLoading, setIsLoading] = useState(false)
   const [formData, setFormData] = useState<AddEmployeeFormData>({
     email: '',
@@ -26,6 +56,12 @@ export function AddEmployeeForm() {
     weeklyHourLimit: 40
   })
 
+  /**
+   * Form submission handler
+   * Creates user auth record and profile in database
+   * 
+   * @param e - Form submission event
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
@@ -59,10 +95,10 @@ export function AddEmployeeForm() {
         throw new Error('Failed to create user')
       }
 
-      // Wait a moment for the trigger to create the profile
+      // Wait for trigger to create the profile
       await new Promise(resolve => setTimeout(resolve, 2000))
 
-      // Verify the profile was created
+      // Verify profile creation
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -70,18 +106,21 @@ export function AddEmployeeForm() {
         .single()
 
       if (profileError || !profile) {
-        // If profile doesn't exist, clean up the auth user
+        // Clean up auth user if profile creation failed
         await supabase.auth.admin.deleteUser(authData.user.id)
         throw new Error('Failed to create user profile')
       }
 
+      // Show success message
       toast({
         title: 'Success',
         description: 'Employee added successfully. They will receive an email to set their password.',
       })
 
+      // Redirect to employees list
       router.push('/dashboard/employees')
     } catch (error) {
+      // Handle and display errors
       toast({
         title: 'Error adding employee',
         description: error instanceof Error ? error.message : 'An unexpected error occurred',
@@ -94,6 +133,7 @@ export function AddEmployeeForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Email input field */}
       <div className="space-y-2">
         <Label htmlFor="email">Email</Label>
         <Input
@@ -106,6 +146,7 @@ export function AddEmployeeForm() {
         />
       </div>
 
+      {/* Full name input field */}
       <div className="space-y-2">
         <Label htmlFor="fullName">Full Name</Label>
         <Input
@@ -117,6 +158,7 @@ export function AddEmployeeForm() {
         />
       </div>
 
+      {/* Weekly hour limit input field */}
       <div className="space-y-2">
         <Label htmlFor="weeklyHourLimit">Weekly Hour Limit</Label>
         <Input
@@ -130,6 +172,7 @@ export function AddEmployeeForm() {
         />
       </div>
 
+      {/* Role selection field */}
       <div className="space-y-2">
         <Label htmlFor="role">Role</Label>
         <Select
@@ -146,6 +189,7 @@ export function AddEmployeeForm() {
         </Select>
       </div>
 
+      {/* Submit button with loading state */}
       <Button type="submit" disabled={isLoading}>
         {isLoading ? "Adding..." : "Add Employee"}
       </Button>

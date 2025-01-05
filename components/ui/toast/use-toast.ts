@@ -1,10 +1,29 @@
+/**
+ * Toast Hook and Store Module
+ * 
+ * This module provides a custom hook and store implementation for managing toast notifications
+ * in a React application. It includes functionality for:
+ * - Adding and dismissing toast notifications
+ * - Managing a queue of active toasts with a limit
+ * - Subscribing to toast state changes
+ * - Providing a simple API for triggering toasts from anywhere
+ * 
+ * The implementation uses a custom store pattern rather than global state management
+ * to keep the toast system self-contained and efficient.
+ */
+
 "use client"
 
 import * as React from "react"
 
-const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 1000000
+// Configuration constants
+const TOAST_LIMIT = 1 // Maximum number of toasts shown simultaneously
+const TOAST_REMOVE_DELAY = 1000000 // Delay in ms before removing toast
 
+/**
+ * Core toast notification properties interface
+ * Defines the structure and available options for toast notifications
+ */
 export interface ToastProps {
   id: string
   title?: string
@@ -13,10 +32,18 @@ export interface ToastProps {
   variant?: "default" | "destructive"
 }
 
+/**
+ * State interface for the toast store
+ * Maintains an array of active toast notifications
+ */
 interface ToastState {
   toasts: ToastProps[]
 }
 
+/**
+ * Union type defining all possible actions that can be dispatched to the toast store
+ * Includes adding new toasts and dismissing existing ones
+ */
 type ActionType = {
   type: "ADD_TOAST"
   toast: Omit<ToastProps, "id">
@@ -25,6 +52,10 @@ type ActionType = {
   toastId: string
 }
 
+/**
+ * Custom store implementation for managing toast state
+ * Provides methods for subscribing to state changes and dispatching actions
+ */
 const toastStore = {
   state: { toasts: [] } as ToastState,
   listeners: new Set<() => void>(),
@@ -54,6 +85,10 @@ const toastStore = {
   },
 }
 
+/**
+ * Helper function to create and show a new toast notification
+ * Returns an object with the toast ID and a method to dismiss it
+ */
 export function toast({
   title,
   description,
@@ -71,6 +106,13 @@ export function toast({
   }
 }
 
+/**
+ * Custom hook for accessing toast state and methods in React components
+ * Provides access to:
+ * - Current list of active toasts
+ * - Method to create new toasts
+ * - Method to dismiss specific toasts
+ */
 export function useToast() {
   const [state, setState] = React.useState<ToastState>(toastStore.state)
 

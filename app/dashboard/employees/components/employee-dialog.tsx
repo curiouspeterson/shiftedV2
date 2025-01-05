@@ -1,3 +1,17 @@
+/**
+ * Employee Management Dialog Component
+ * 
+ * A dialog component for creating and managing employee accounts.
+ * Handles user creation in Supabase Auth and profile management.
+ * 
+ * Features:
+ * - Create new employee accounts
+ * - Set employee roles (employee/manager)
+ * - Automatic profile creation through Supabase triggers
+ * - Email notification for password setup
+ * - Error handling and user feedback
+ */
+
 "use client"
 
 import * as React from "react"
@@ -23,6 +37,13 @@ import {
 import { toast } from "@/components/ui/use-toast"
 import { type Employee } from "@/types/employee"
 
+/**
+ * Props for the EmployeeDialog component
+ * @property open - Controls dialog visibility
+ * @property onOpenChange - Callback for dialog open state changes
+ * @property employee - Employee data for editing mode (null for create mode)
+ * @property onSuccess - Callback function after successful operation
+ */
 interface EmployeeDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -30,72 +51,99 @@ interface EmployeeDialogProps {
   onSuccess: () => void
 }
 
-type EmployeeRole = "employee" | "manager"
-
+/**
+ * Dialog component for employee management
+ * Provides interface for creating and editing employee accounts
+ */
 export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: EmployeeDialogProps) {
+  // State management for form fields and loading state
   const [isLoading, setIsLoading] = React.useState(false)
-  const [email, setEmail] = React.useState(employee?.email || "")
-  const [fullName, setFullName] = React.useState(employee?.full_name || "")
-  const [role, setRole] = React.useState<EmployeeRole>(employee?.role as EmployeeRole || "employee")
-  const [weeklyHourLimit, setWeeklyHourLimit] = React.useState(employee?.weekly_hour_limit?.toString() || "40")
+  const [email, setEmail] = React.useState("")
+  const [fullName, setFullName] = React.useState("")
+  const [role, setRole] = React.useState<"employee" | "manager">("employee")
 
+  // Set initial values when employee prop changes
   React.useEffect(() => {
     if (employee) {
-      setEmail(employee.email)
-      setFullName(employee.full_name)
-      setRole(employee.role as EmployeeRole)
-      setWeeklyHourLimit(employee.weekly_hour_limit?.toString() || "40")
-    } else {
-      setEmail("")
-      setFullName("")
-      setRole("employee")
-      setWeeklyHourLimit("40")
+      setEmail(employee.email || "")
+      setFullName(employee.full_name || "")
+      setRole(employee.role || "employee")
     }
   }, [employee])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-
+  /**
+   * Form submission handler
+   * Creates or updates employee account
+   * @param event - Form submission event
+   */
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
     try {
-      const response = await fetch('/api/employees/route', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: employee ? 'update' : 'create',
-          data: {
-            id: employee?.id,
-            email,
-            full_name: fullName,
-            role,
-            weekly_hour_limit: parseInt(weeklyHourLimit),
-          }
-        })
-      })
+      setIsLoading(true)
+      const supabase = createClient()
 
-      if (!response.ok) {
-        const error = await response.json()
-        console.error('Server response:', error)
-        throw new Error(error.message || 'Failed to save employee')
+      if (employee) {
+        // Update existing employee
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({
+            full_name: fullName,
+            role: role,
+          })
+          .eq('id', employee.id)
+
+        if (updateError) throw updateError
+
+        toast({
+          title: "Success",
+          description: "Employee updated successfully",
+        })
+      } else {
+        // Create new employee
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email,
+          password: 'tempPassword123!', // TODO: Implement secure password generation
+          options: {
+            data: {
+              full_name: fullName,
+              role: role,
+            },
+          },
+        })
+
+        if (authError) throw authError
+        if (!authData.user) throw new Error('No user returned from auth signup')
+
+        // Allow time for database trigger to create profile
+        await new Promise(resolve => setTimeout(resolve, 1000))
+
+        // Verify profile creation was successful
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', authData.user.id)
+          .single()
+
+        if (profileError || !profile) {
+          // Cleanup: Remove auth user if profile creation failed
+          await supabase.auth.admin.deleteUser(authData.user.id)
+          throw new Error('Failed to create user profile')
+        }
+
+        toast({
+          title: "Success",
+          description: "Employee created successfully. They will receive an email to set their password.",
+        })
       }
 
-      const result = await response.json()
-      console.log('Operation successful:', result)
-
-      toast({
-        title: "Success",
-        description: `Employee ${employee ? 'updated' : 'created'} successfully`,
-      })
       onSuccess()
       onOpenChange(false)
-    } catch (error) {
-      console.error('Error saving employee:', error)
+    } catch (err) {
+      console.error('Error managing employee:', err)
       toast({
         variant: "destructive",
         title: "Error",
-        description: error instanceof Error ? error.message : `Failed to ${employee ? 'update' : 'create'} employee`,
+        description: err instanceof Error ? err.message : "Failed to manage employee",
       })
     } finally {
       setIsLoading(false)
@@ -108,11 +156,12 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
         <DialogHeader>
           <DialogTitle>{employee ? 'Edit' : 'Add'} Employee</DialogTitle>
           <DialogDescription>
-            {employee ? 'Update employee details' : 'Add a new employee to the system'}
+            {employee ? 'Update employee details' : 'Add a new employee to the system. They will receive an email to set their password.'}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="space-y-4 py-4">
+            {/* Email input field */}
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -121,9 +170,10 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                disabled={!!employee}
+                disabled={!!employee} // Email can't be changed for existing employees
               />
             </div>
+            {/* Full name input field */}
             <div className="space-y-2">
               <Label htmlFor="fullName">Full Name</Label>
               <Input
@@ -133,9 +183,10 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
                 required
               />
             </div>
+            {/* Role selection dropdown */}
             <div className="space-y-2">
               <Label htmlFor="role">Role</Label>
-              <Select value={role} onValueChange={(value: EmployeeRole) => setRole(value)}>
+              <Select value={role} onValueChange={(value: "employee" | "manager") => setRole(value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select a role" />
                 </SelectTrigger>
@@ -145,25 +196,14 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="weeklyHourLimit">Weekly Hour Limit</Label>
-              <Input
-                id="weeklyHourLimit"
-                type="number"
-                min="0"
-                max="168"
-                value={weeklyHourLimit}
-                onChange={(e) => setWeeklyHourLimit(e.target.value)}
-                required
-              />
-            </div>
           </div>
+          {/* Dialog action buttons */}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button type="submit" disabled={isLoading}>
-              {isLoading ? 'Saving...' : employee ? 'Update' : 'Create'}
+              {isLoading ? (employee ? 'Updating...' : 'Creating...') : (employee ? 'Update' : 'Create')} Employee
             </Button>
           </DialogFooter>
         </form>

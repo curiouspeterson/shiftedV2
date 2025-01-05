@@ -1,10 +1,3 @@
--- Clear existing shift requirements
-DELETE FROM public.shift_requirements;
-
--- Enable error handling
-DO $$ 
-BEGIN
-
 -- Insert Day Shift Early (4 hours)
 INSERT INTO public.shift_requirements (name, day_of_week, start_time, end_time, required_count)
 SELECT 'Day Shift Early (4 hours)', day_of_week, '05:00', '09:00', 1
@@ -63,9 +56,4 @@ FROM generate_series(0, 6) AS day_of_week;
 -- Insert Graveyards (12 hours)
 INSERT INTO public.shift_requirements (name, day_of_week, start_time, end_time, required_count)
 SELECT 'Graveyards (12 hours)', day_of_week, '17:00', '05:00', 1
-FROM generate_series(0, 6) AS day_of_week;
-
-EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'Error occurred: %', SQLERRM;
-    RAISE;
-END $$; 
+FROM generate_series(0, 6) AS day_of_week; 
