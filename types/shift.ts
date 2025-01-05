@@ -13,7 +13,10 @@
  * Represents a shift requirement for a specific day and time
  * @interface
  * @property {string} id - Unique identifier for the shift requirement
+<<<<<<< HEAD
  * @property {string} name - Name of the shift requirement
+=======
+>>>>>>> 814f5aa8e56d545825b7fd94a72c02dc721cc589
  * @property {number} day_of_week - Day of the week (0-6, where 0 is Sunday)
  * @property {string} start_time - Start time in HH:mm format
  * @property {string} end_time - End time in HH:mm format

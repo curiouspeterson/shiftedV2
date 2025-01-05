@@ -3,23 +3,48 @@
  * 
  * Handles authentication and routing middleware for the application.
  * Protects dashboard routes and manages Supabase authentication state.
+<<<<<<< HEAD
+=======
+ * 
+ * Features:
+ * - Route protection for dashboard pages
+ * - Supabase authentication integration
+ * - Cookie management for auth state
+ * - Logging for debugging
+ * - Error handling
+>>>>>>> 814f5aa8e56d545825b7fd94a72c02dc721cc589
  */
 
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+/**
+ * Middleware function that runs before page rendering
+ * Handles authentication checks and route protection
+ * 
+ * @param request - The incoming Next.js request
+ * @returns NextResponse with appropriate routing/auth handling
+ */
 export async function middleware(request: NextRequest) {
+<<<<<<< HEAD
   try {
     console.log('Middleware processing request:', request.url)
 
     // Create a basic response with minimal headers
     const response = NextResponse.next()
 
+=======
+  const response = NextResponse.next()
+
+  try {
+    // Initialize Supabase client with cookie handling
+>>>>>>> 814f5aa8e56d545825b7fd94a72c02dc721cc589
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
+<<<<<<< HEAD
           get(name: string) {
             return request.cookies.get(name)?.value
           },
@@ -45,11 +70,43 @@ export async function middleware(request: NextRequest) {
                 path: '/'
               })
             }
+=======
+          // Get cookie value from request
+          get(name: string) {
+            return request.cookies.get(name)?.value
+          },
+          // Set cookie in both request and response
+          set(name: string, value: string, options: CookieOptions) {
+            request.cookies.set({
+              name,
+              value,
+              ...options,
+            })
+            response.cookies.set({
+              name,
+              value,
+              ...options,
+            })
+          },
+          // Remove cookie from both request and response
+          remove(name: string, options: CookieOptions) {
+            request.cookies.set({
+              name,
+              value: '',
+              ...options,
+            })
+            response.cookies.set({
+              name,
+              value: '',
+              ...options,
+            })
+>>>>>>> 814f5aa8e56d545825b7fd94a72c02dc721cc589
           },
         },
       }
     )
 
+<<<<<<< HEAD
     // Get session without refreshing to avoid unnecessary cookie updates
     const { data: { session } } = await supabase.auth.getSession()
 
@@ -73,6 +130,29 @@ export async function middleware(request: NextRequest) {
       if (!session) {
         return NextResponse.redirect(new URL('/login', request.url))
       }
+=======
+    // Check authentication status
+    const { data: { session } } = await supabase.auth.getSession()
+    
+    // Log authentication state for debugging
+    console.log('Middleware auth check:', {
+      path: request.nextUrl.pathname,
+      hasSession: !!session,
+      user: session?.user?.email
+    })
+
+    // Protect dashboard routes - redirect to login if not authenticated
+    if (request.nextUrl.pathname.startsWith('/dashboard')) {
+      if (!session) {
+        return NextResponse.redirect(new URL('/login', request.url))
+      }
+    }
+
+  } catch (e) {
+    // Log any errors that occur during middleware execution
+    console.error('Middleware error:', e)
+  }
+>>>>>>> 814f5aa8e56d545825b7fd94a72c02dc721cc589
 
       // Check manager role for protected routes
       if (path.startsWith('/dashboard/shifts')) {
@@ -96,8 +176,14 @@ export async function middleware(request: NextRequest) {
   }
 }
 
+/**
+ * Middleware configuration
+ * Defines which routes the middleware should run on
+ * Excludes static files and assets
+ */
 export const config = {
   matcher: [
+<<<<<<< HEAD
     /*
      * Match all request paths except for the ones starting with:
      * - _next/static (static files)
@@ -107,5 +193,8 @@ export const config = {
      * - api routes
      */
     '/((?!_next/static|_next/image|favicon.ico|api|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+=======
+    '/((?!_next/static|_next/image|favicon.ico).*)',
+>>>>>>> 814f5aa8e56d545825b7fd94a72c02dc721cc589
   ],
 } 

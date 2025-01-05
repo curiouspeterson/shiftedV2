@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 "use client"
 
 import { useEffect, useState } from "react"
@@ -6,6 +7,34 @@ import { createClient } from "@/lib/supabase/client"
 import { ShiftRequirements } from "./components/shift-requirements"
 
 /**
+=======
+/**
+ * Shifts Page Component
+ * 
+ * Main page component for managing shift requirements.
+ * Provides an interface for viewing and managing recurring shift schedules.
+ * 
+ * Features:
+ * - Shift requirements management
+ * - Page metadata
+ * - Responsive layout
+ * - SEO optimization
+ */
+
+import { Metadata } from "next"
+import { ShiftRequirements } from "./components/shift-requirements"
+
+/**
+ * Page metadata configuration
+ * Defines title and description for SEO
+ */
+export const metadata: Metadata = {
+  title: "Shift Requirements",
+  description: "Manage recurring shift requirements",
+}
+
+/**
+>>>>>>> 814f5aa8e56d545825b7fd94a72c02dc721cc589
  * Shifts management page component
  * Renders the shift requirements interface
  */

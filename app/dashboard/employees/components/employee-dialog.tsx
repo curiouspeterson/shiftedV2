@@ -58,6 +58,7 @@ interface EmployeeDialogProps {
 export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: EmployeeDialogProps) {
   // State management for form fields and loading state
   const [isLoading, setIsLoading] = React.useState(false)
+<<<<<<< HEAD
   const [email, setEmail] = React.useState("")
   const [fullName, setFullName] = React.useState("")
   const [role, setRole] = React.useState<"employee" | "manager">("employee")
@@ -70,6 +71,11 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
       setRole(employee.role || "employee")
     }
   }, [employee])
+=======
+  const [email, setEmail] = React.useState(employee?.email || "")
+  const [fullName, setFullName] = React.useState(employee?.full_name || "")
+  const [role, setRole] = React.useState<"employee" | "manager">(employee?.role || "employee")
+>>>>>>> 814f5aa8e56d545825b7fd94a72c02dc721cc589
 
   /**
    * Form submission handler
@@ -81,6 +87,7 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
     try {
       setIsLoading(true)
       const supabase = createClient()
+<<<<<<< HEAD
 
       if (employee) {
         // Update existing employee
@@ -111,6 +118,39 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
           },
         })
 
+=======
+
+      if (employee) {
+        // Update existing employee
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({
+            full_name: fullName,
+            email: email,
+            role: role,
+          })
+          .eq('id', employee.id)
+
+        if (updateError) throw updateError
+
+        toast({
+          title: "Success",
+          description: "Employee updated successfully",
+        })
+      } else {
+        // Create new employee
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email,
+          password: 'tempPassword123!', // TODO: Implement secure password generation
+          options: {
+            data: {
+              full_name: fullName,
+              role: role,
+            },
+          },
+        })
+
+>>>>>>> 814f5aa8e56d545825b7fd94a72c02dc721cc589
         if (authError) throw authError
         if (!authData.user) throw new Error('No user returned from auth signup')
 
@@ -135,7 +175,11 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
           description: "Employee created successfully. They will receive an email to set their password.",
         })
       }
+<<<<<<< HEAD
 
+=======
+      
+>>>>>>> 814f5aa8e56d545825b7fd94a72c02dc721cc589
       onSuccess()
       onOpenChange(false)
     } catch (err) {

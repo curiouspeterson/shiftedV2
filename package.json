@@ -21,7 +21,10 @@
     "@radix-ui/react-slot": "^1.1.1",
     "@radix-ui/react-tabs": "1.0.4",
     "@radix-ui/react-toast": "^1.1.4",
+<<<<<<< HEAD
     "@supabase/auth-helpers-nextjs": "^0.10.0",
+=======
+>>>>>>> 814f5aa8e56d545825b7fd94a72c02dc721cc589
     "@supabase/ssr": "0.0.10",
     "@supabase/supabase-js": "2.38.4",
     "bufferutil": "^4.0.9",

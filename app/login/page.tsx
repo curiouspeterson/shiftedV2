@@ -19,7 +19,11 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+<<<<<<< HEAD
 import { createBrowserClient } from "@supabase/ssr"
+=======
+import { createClient } from "@/lib/supabase/client"
+>>>>>>> 814f5aa8e56d545825b7fd94a72c02dc721cc589
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -41,6 +45,7 @@ export default function LoginPage() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 
+<<<<<<< HEAD
   // Check for existing session on mount
   useEffect(() => {
     const checkSession = async () => {
@@ -110,6 +115,8 @@ export default function LoginPage() {
     return () => subscription.unsubscribe()
   }, [router])
 
+=======
+>>>>>>> 814f5aa8e56d545825b7fd94a72c02dc721cc589
   /**
    * Form submission handler
    * Authenticates user with Supabase
@@ -121,13 +128,21 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
+<<<<<<< HEAD
       console.log('Attempting login...')
       // Attempt to sign in
       const { data, error } = await supabase.auth.signInWithPassword({
+=======
+      const supabase = createClient()
+
+      // Attempt to sign in
+      const { error } = await supabase.auth.signInWithPassword({
+>>>>>>> 814f5aa8e56d545825b7fd94a72c02dc721cc589
         email,
         password,
       })
 
+<<<<<<< HEAD
       if (error) {
         throw error
       }
@@ -135,13 +150,26 @@ export default function LoginPage() {
       console.log('Login successful:', data)
       // The navigation will be handled by the auth state change listener
       
+=======
+      if (error) throw error
+
+      // Redirect to dashboard on success
+      router.push("/dashboard")
+>>>>>>> 814f5aa8e56d545825b7fd94a72c02dc721cc589
     } catch (error) {
       console.error('Error signing in:', error)
       toast({
         title: "Error",
+<<<<<<< HEAD
         description: error instanceof Error ? error.message : "Invalid email or password",
         variant: "destructive",
       })
+=======
+        description: "Invalid email or password",
+        variant: "destructive",
+      })
+    } finally {
+>>>>>>> 814f5aa8e56d545825b7fd94a72c02dc721cc589
       setIsLoading(false)
     }
   }

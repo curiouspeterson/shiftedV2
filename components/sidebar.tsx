@@ -39,16 +39,25 @@ interface NavItem {
  * Defines available routes and their properties
  */
 const navItems: NavItem[] = [
+<<<<<<< HEAD
   // Core pages accessible to all users
+=======
+>>>>>>> 814f5aa8e56d545825b7fd94a72c02dc721cc589
   { href: "/dashboard", label: "Dashboard" },
   { href: "/dashboard/schedule", label: "Schedule" },
   { href: "/dashboard/availability", label: "Availability" },
   { href: "/dashboard/time-off", label: "Time Off" },
+<<<<<<< HEAD
   { href: "/dashboard/shifts", label: "Shifts", managerOnly: true },
   { href: "/dashboard/status", label: "Status" },
   
   // Manager-only pages
   { href: "/dashboard/employees", label: "Employees", managerOnly: true },
+=======
+  { href: "/dashboard/employees", label: "Employees", managerOnly: true },
+  { href: "/dashboard/shifts", label: "Shifts", managerOnly: true },
+  { href: "/dashboard/status", label: "Status" },
+>>>>>>> 814f5aa8e56d545825b7fd94a72c02dc721cc589
 ]
 
 /**

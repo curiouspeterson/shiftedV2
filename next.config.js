@@ -8,7 +8,10 @@
  * - Environment variable exposure to client-side
  * - Webpack configuration for Node.js polyfills
  * - Supabase configuration
+<<<<<<< HEAD
  * - Development server configuration
+=======
+>>>>>>> 814f5aa8e56d545825b7fd94a72c02dc721cc589
  */
 
 /** @type {import('next').NextConfig} */
@@ -19,6 +22,7 @@ const nextConfig = {
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   },
+<<<<<<< HEAD
 
   // Webpack configuration to handle Node.js polyfills
   webpack: (config, { dev, isServer }) => {
@@ -37,6 +41,15 @@ const nextConfig = {
         config.watchOptions.poll = 1000 // Check for changes every second
         config.watchOptions.aggregateTimeout = 300 // Delay before rebuilding
       }
+=======
+  // Webpack configuration to handle Node.js polyfills
+  webpack: (config) => {
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      // Disable Node.js-specific modules in the browser
+      fs: false,
+      module: false,
+>>>>>>> 814f5aa8e56d545825b7fd94a72c02dc721cc589
     }
     return config
   }

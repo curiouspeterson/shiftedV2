@@ -56,6 +56,7 @@ export function createServerSupabaseClient() {
  * 
  * @returns A typed Supabase admin client with elevated privileges
  */
+<<<<<<< HEAD
 export function createAdminClient(token?: string) {
   const cookieStore = cookies()
   
@@ -63,15 +64,33 @@ export function createAdminClient(token?: string) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     {
+=======
+export function createAdminClient() {
+  const cookieStore = cookies()
+
+  return createServerClient<Database>(
+    env.NEXT_PUBLIC_SUPABASE_URL,
+    env.SUPABASE_SERVICE_ROLE_KEY,
+    {
+      auth: {
+        // Disable token auto-refresh for admin client
+        autoRefreshToken: false,
+        // Disable session persistence for admin client
+        persistSession: false,
+      },
+>>>>>>> 814f5aa8e56d545825b7fd94a72c02dc721cc589
       cookies: {
+        // Get cookie value by name
         get(name: string) {
           return cookieStore.get(name)?.value
         },
+        // Set cookie with name, value, and options
         set(name: string, value: string, options: CookieOptions) {
           cookieStore.set({ name, value, ...options })
         },
+        // Remove cookie by name
         remove(name: string, options: CookieOptions) {
-          cookieStore.set({ name, value: '', ...options })
+          cookieStore.delete(name)
         },
       },
       global: {
