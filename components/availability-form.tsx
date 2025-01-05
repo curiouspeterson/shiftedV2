@@ -1,3 +1,18 @@
+/**
+ * Availability Form Component
+ * 
+ * Form component for adding employee availability time slots.
+ * Allows employees to specify their available hours for each day of the week.
+ * 
+ * Features:
+ * - Day of week selection
+ * - Time range input
+ * - Form validation
+ * - Real-time feedback
+ * - Success/error notifications
+ * - Automatic form reset
+ */
+
 "use client"
 
 import { useState } from "react"
@@ -8,6 +23,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { createBrowserClient } from '@supabase/ssr'
 import { toast } from "@/components/ui/use-toast"
 
+/**
+ * Days of week options for selection
+ * Maps numeric values to day names
+ */
 const DAYS_OF_WEEK = [
   { value: "0", label: "Sunday" },
   { value: "1", label: "Monday" },
@@ -18,29 +37,47 @@ const DAYS_OF_WEEK = [
   { value: "6", label: "Saturday" }
 ]
 
+/**
+ * Component props
+ * @property onAvailabilityAdded - Callback function triggered after successful submission
+ */
 interface AvailabilityFormProps {
   onAvailabilityAdded: () => void
 }
 
+/**
+ * Availability form component
+ * Manages form state and submission for availability slots
+ */
 export function AvailabilityForm({ onAvailabilityAdded }: AvailabilityFormProps) {
+  // Form field state management
   const [dayOfWeek, setDayOfWeek] = useState("")
   const [startTime, setStartTime] = useState("")
   const [endTime, setEndTime] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  /**
+   * Form submission handler
+   * Creates new availability record in the database
+   * 
+   * @param e - Form submission event
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
 
     try {
+      // Initialize Supabase client
       const supabase = createBrowserClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
       )
 
+      // Get current user
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error("No user found")
 
+      // Insert availability record
       const { error } = await supabase
         .from('employee_availability')
         .insert([
@@ -54,6 +91,7 @@ export function AvailabilityForm({ onAvailabilityAdded }: AvailabilityFormProps)
 
       if (error) throw error
 
+      // Show success message
       toast({
         title: "Success",
         description: "Availability added successfully",
@@ -67,6 +105,7 @@ export function AvailabilityForm({ onAvailabilityAdded }: AvailabilityFormProps)
       // Notify parent component
       onAvailabilityAdded()
     } catch (error) {
+      // Handle and display errors
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to add availability",
@@ -79,6 +118,7 @@ export function AvailabilityForm({ onAvailabilityAdded }: AvailabilityFormProps)
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Day of week selection */}
       <div className="space-y-2">
         <Label htmlFor="dayOfWeek">Day of Week</Label>
         <Select value={dayOfWeek} onValueChange={setDayOfWeek}>
@@ -95,6 +135,7 @@ export function AvailabilityForm({ onAvailabilityAdded }: AvailabilityFormProps)
         </Select>
       </div>
 
+      {/* Start time input */}
       <div className="space-y-2">
         <Label htmlFor="startTime">Start Time</Label>
         <Input
@@ -106,6 +147,7 @@ export function AvailabilityForm({ onAvailabilityAdded }: AvailabilityFormProps)
         />
       </div>
 
+      {/* End time input */}
       <div className="space-y-2">
         <Label htmlFor="endTime">End Time</Label>
         <Input
@@ -117,6 +159,7 @@ export function AvailabilityForm({ onAvailabilityAdded }: AvailabilityFormProps)
         />
       </div>
 
+      {/* Submit button with loading and validation states */}
       <Button type="submit" disabled={isSubmitting || !dayOfWeek || !startTime || !endTime}>
         {isSubmitting ? "Adding..." : "Add Availability"}
       </Button>

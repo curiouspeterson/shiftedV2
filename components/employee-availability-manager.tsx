@@ -1,27 +1,32 @@
+/**
+ * Employee Availability Manager Component
+ * 
+ * A component for managing individual employee availability settings.
+ * Provides an interface for viewing and modifying employee availability slots.
+ * 
+ * Features:
+ * - Employee-specific availability management
+ * - Availability slot viewing
+ * - Slot modification
+ * - Real-time updates
+ * - Loading states
+ * - Error handling
+ */
+
 "use client"
 
-import { useState, useEffect } from "react"
-import { createBrowserClient } from '@supabase/ssr'
+import { useState, useEffect } from 'react'
+import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/components/ui/use-toast"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
+/**
+ * Days of week options for selection
+ */
 const DAYS_OF_WEEK = [
   { value: "0", label: "Sunday" },
   { value: "1", label: "Monday" },
@@ -32,7 +37,10 @@ const DAYS_OF_WEEK = [
   { value: "6", label: "Saturday" }
 ]
 
-interface Availability {
+/**
+ * Availability slot interface
+ */
+interface AvailabilitySlot {
   id: string
   profile_id: string
   day_of_week: number
@@ -40,96 +48,71 @@ interface Availability {
   end_time: string
 }
 
-interface Employee {
-  id: string
-  full_name: string
+/**
+ * Component props
+ */
+interface EmployeeAvailabilityManagerProps {
+  employeeId: string
 }
 
-export function EmployeeAvailabilityManager() {
-  const [employees, setEmployees] = useState<Employee[]>([])
-  const [availabilities, setAvailabilities] = useState<Availability[]>([])
-  const [selectedEmployee, setSelectedEmployee] = useState<string>("")
-  const [dayOfWeek, setDayOfWeek] = useState<string>("")
+/**
+ * Employee availability manager component
+ */
+export function EmployeeAvailabilityManager({ employeeId }: EmployeeAvailabilityManagerProps) {
+  // State management
+  const [slots, setSlots] = useState<AvailabilitySlot[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [dayOfWeek, setDayOfWeek] = useState("")
   const [startTime, setStartTime] = useState("")
   const [endTime, setEndTime] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
+  // Fetch availability slots on mount
   useEffect(() => {
-    fetchEmployees()
-  }, [])
+    fetchAvailability()
+  }, [employeeId])
 
-  useEffect(() => {
-    if (selectedEmployee) {
-      fetchAvailabilities()
-    }
-  }, [selectedEmployee])
-
-  const fetchEmployees = async () => {
+  /**
+   * Fetches availability slots for the employee
+   */
+  const fetchAvailability = async () => {
     try {
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
-
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name')
-        .eq('is_active', true)
-        .order('full_name')
-
-      if (error) throw error
-      setEmployees(data || [])
-    } catch (error) {
-      toast({
-        title: "Error fetching employees",
-        description: error instanceof Error ? error.message : "Failed to fetch employees",
-        variant: "destructive"
-      })
-    }
-  }
-
-  const fetchAvailabilities = async () => {
-    if (!selectedEmployee) return
-
-    try {
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
-
+      setIsLoading(true)
+      const supabase = createClient()
       const { data, error } = await supabase
         .from('employee_availability')
         .select('*')
-        .eq('profile_id', selectedEmployee)
+        .eq('profile_id', employeeId)
         .order('day_of_week')
 
       if (error) throw error
-      setAvailabilities(data || [])
+      setSlots(data || [])
     } catch (error) {
+      console.error('Error fetching availability:', error)
       toast({
-        title: "Error fetching availabilities",
-        description: error instanceof Error ? error.message : "Failed to fetch availabilities",
-        variant: "destructive"
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to fetch availability slots",
       })
+    } finally {
+      setIsLoading(false)
     }
   }
 
+  /**
+   * Handles form submission to add new availability slot
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedEmployee || !dayOfWeek || !startTime || !endTime) return
+    setIsSubmitting(true)
 
-    setIsLoading(true)
     try {
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
-
+      const supabase = createClient()
       const { error } = await supabase
         .from('employee_availability')
         .insert([
           {
-            profile_id: selectedEmployee,
+            profile_id: employeeId,
             day_of_week: parseInt(dayOfWeek),
             start_time: startTime,
             end_time: endTime
@@ -140,98 +123,82 @@ export function EmployeeAvailabilityManager() {
 
       toast({
         title: "Success",
-        description: "Availability added successfully"
+        description: "Availability slot added successfully",
       })
 
-      // Reset form
+      // Reset form and refresh slots
       setDayOfWeek("")
       setStartTime("")
       setEndTime("")
-
-      // Refresh availabilities
-      fetchAvailabilities()
+      fetchAvailability()
     } catch (error) {
+      console.error('Error adding availability:', error)
       toast({
-        title: "Error adding availability",
-        description: error instanceof Error ? error.message : "An unexpected error occurred",
-        variant: "destructive"
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to add availability slot",
       })
     } finally {
-      setIsLoading(false)
+      setIsSubmitting(false)
     }
   }
 
-  const handleDelete = async (id: string) => {
-    setIsLoading(true)
+  /**
+   * Handles deletion of an availability slot
+   */
+  const handleDelete = async (slotId: string) => {
     try {
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
-
+      const supabase = createClient()
       const { error } = await supabase
         .from('employee_availability')
         .delete()
-        .eq('id', id)
+        .eq('id', slotId)
 
       if (error) throw error
 
       toast({
         title: "Success",
-        description: "Availability deleted successfully"
+        description: "Availability slot deleted successfully",
       })
-
-      // Refresh availabilities
-      fetchAvailabilities()
+      fetchAvailability()
     } catch (error) {
+      console.error('Error deleting availability:', error)
       toast({
-        title: "Error deleting availability",
-        description: error instanceof Error ? error.message : "An unexpected error occurred",
-        variant: "destructive"
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to delete availability slot",
       })
-    } finally {
-      setIsLoading(false)
     }
   }
 
   return (
     <div className="space-y-6">
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="employee">Employee</Label>
-          <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select an employee" />
-            </SelectTrigger>
-            <SelectContent>
-              {employees.map((employee) => (
-                <SelectItem key={employee.id} value={employee.id}>
-                  {employee.full_name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {selectedEmployee && (
+      {/* Add availability form */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Add Availability Slot</CardTitle>
+        </CardHeader>
+        <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="dayOfWeek">Day of Week</Label>
-                <Select value={dayOfWeek} onValueChange={setDayOfWeek}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a day" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {DAYS_OF_WEEK.map((day) => (
-                      <SelectItem key={day.value} value={day.value}>
-                        {day.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            {/* Day of week selection */}
+            <div className="space-y-2">
+              <Label htmlFor="dayOfWeek">Day of Week</Label>
+              <Select value={dayOfWeek} onValueChange={setDayOfWeek}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a day" />
+                </SelectTrigger>
+                <SelectContent>
+                  {DAYS_OF_WEEK.map((day) => (
+                    <SelectItem key={day.value} value={day.value}>
+                      {day.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
+            {/* Time range inputs */}
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="startTime">Start Time</Label>
                 <Input
@@ -242,7 +209,6 @@ export function EmployeeAvailabilityManager() {
                   required
                 />
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="endTime">End Time</Label>
                 <Input
@@ -255,46 +221,53 @@ export function EmployeeAvailabilityManager() {
               </div>
             </div>
 
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? "Adding..." : "Add Availability"}
+            {/* Submit button */}
+            <Button type="submit" disabled={isSubmitting || !dayOfWeek || !startTime || !endTime}>
+              {isSubmitting ? "Adding..." : "Add Availability"}
             </Button>
           </form>
-        )}
-      </div>
+        </CardContent>
+      </Card>
 
-      {selectedEmployee && availabilities.length > 0 && (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Day</TableHead>
-              <TableHead>Start Time</TableHead>
-              <TableHead>End Time</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {availabilities.map((availability) => (
-              <TableRow key={availability.id}>
-                <TableCell>
-                  {DAYS_OF_WEEK[availability.day_of_week].label}
-                </TableCell>
-                <TableCell>{availability.start_time}</TableCell>
-                <TableCell>{availability.end_time}</TableCell>
-                <TableCell>
+      {/* Current availability slots */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Current Availability</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div>Loading availability slots...</div>
+          ) : slots.length === 0 ? (
+            <div>No availability slots set</div>
+          ) : (
+            <div className="space-y-4">
+              {slots.map((slot) => (
+                <div
+                  key={slot.id}
+                  className="flex items-center justify-between rounded-lg border p-4"
+                >
+                  <div>
+                    <p className="font-medium">
+                      {DAYS_OF_WEEK.find(day => day.value === slot.day_of_week.toString())?.label}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      {slot.start_time} - {slot.end_time}
+                    </p>
+                  </div>
                   <Button
-                    variant="destructive"
+                    variant="outline"
                     size="sm"
-                    onClick={() => handleDelete(availability.id)}
-                    disabled={isLoading}
+                    className="text-destructive"
+                    onClick={() => handleDelete(slot.id)}
                   >
                     Delete
                   </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

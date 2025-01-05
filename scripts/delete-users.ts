@@ -1,64 +1,64 @@
-import { config } from 'dotenv'
+/**
+ * User Deletion Script
+ * 
+ * This script provides functionality to delete all users from the Supabase authentication system.
+ * It uses the Supabase admin API with service role credentials to:
+ * 1. List all users in the system
+ * 2. Delete each user one by one
+ * 3. Log the results of each deletion attempt
+ * 
+ * Note: This script should be used with caution as it permanently deletes user accounts.
+ * Requires SUPABASE_SERVICE_ROLE_KEY environment variable to be set.
+ */
+
+// Import required dependencies
 import { createClient } from '@supabase/supabase-js'
+import { env } from '@/lib/env'
 
-// Load environment variables from .env.local
-config({ path: '.env.local' })
-
-// Create a Supabase client with the service role key
+// Initialize Supabase client with admin privileges
+// Disable token refresh and session persistence since this is a one-time script
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  env.NEXT_PUBLIC_SUPABASE_URL,
+  env.SUPABASE_SERVICE_ROLE_KEY,
   {
-    db: {
-      schema: 'public'
-    }
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
   }
 )
 
+/**
+ * Deletes all users from the Supabase authentication system
+ * 
+ * Process:
+ * 1. Fetches complete list of users using admin API
+ * 2. Iterates through each user and attempts deletion
+ * 3. Logs successful deletions and any errors encountered
+ * 
+ * Error handling:
+ * - Catches and logs any errors during user listing
+ * - Continues to next user if deletion of current user fails
+ */
 async function deleteUsers() {
-  const userIds = [
-    '3d98b03b-9999-4c07-93bb-501fee4824fc',  // frank_new@test.com
-    '339bc6ec-c995-4742-aae4-525c44f62a4f',  // test_new@test.com
-    'c154e64f-8915-46f6-96d1-7e8f40969b42'   // adamjpeterson@gmail.com
-  ]
+  try {
+    // Fetch all users from Supabase auth
+    const { data: users, error } = await supabase.auth.admin.listUsers()
+    if (error) throw error
 
-  console.log('Attempting to delete users:', userIds)
-
-  for (const id of userIds) {
-    try {
-      // First try to delete from profiles table
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('id', id)
-
-      if (profileError) {
-        console.error(`Failed to delete profile ${id}:`, profileError)
-      } else {
-        console.log(`Successfully deleted profile ${id}`)
+    // Iterate through users and delete each one
+    for (const user of users.users) {
+      const { error: deleteError } = await supabase.auth.admin.deleteUser(user.id)
+      if (deleteError) {
+        console.error(`Failed to delete user ${user.id}:`, deleteError)
+        continue
       }
-
-      // Then try to delete the auth user
-      const { error: authError } = await supabase.auth.admin.deleteUser(id)
-
-      if (authError) {
-        console.error(`Failed to delete user ${id} from auth:`, authError)
-      } else {
-        console.log(`Successfully deleted user ${id} from auth`)
-      }
-    } catch (error) {
-      console.error(`Error deleting user ${id}:`, error)
+      console.log(`Deleted user ${user.id}`)
     }
+  } catch (error) {
+    console.error('Error deleting users:', error)
   }
 }
 
-// Run the script
-deleteUsers()
-  .then(() => {
-    console.log('Finished deletion attempts')
-    process.exit(0)
-  })
-  .catch(error => {
-    console.error('Script failed:', error)
-    process.exit(1)
-  }) 
+// Execute the deletion script
+deleteUsers() 

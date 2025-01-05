@@ -1,59 +1,68 @@
+/**
+ * API Route: Delete Employees
+ * 
+ * This API endpoint handles the deletion of multiple employee users from the system.
+ * It requires manager authentication and uses Supabase's admin client for user deletion.
+ * The route accepts an array of user IDs and attempts to delete each user, returning
+ * the results of each deletion operation.
+ */
+
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { withManagerAuth } from '@/lib/auth'
+import { env } from '@/lib/env'
+import { Database } from '@/types/supabase'
 
-// Create a Supabase client with the service role key
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+// Initialize Supabase admin client with service role key for administrative operations
+// This client has elevated privileges and should only be used server-side
+const supabase = createClient<Database>(
+  env.NEXT_PUBLIC_SUPABASE_URL,
+  env.SUPABASE_SERVICE_ROLE_KEY,
   {
-    db: {
-      schema: 'public'
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
     }
   }
 )
 
+/**
+ * POST handler for bulk user deletion
+ * @param request - Contains an array of user IDs to be deleted
+ * @returns NextResponse with results of deletion operations
+ */
 export async function POST(request: Request) {
-  try {
-    // List of user IDs to delete
-    const userIds = [
-      '3d98b03b-9999-4c07-93bb-501fee4824fc',
-      '339bc6ec-c995-4742-aae4-525c44f62a4f',
-      'c154e64f-8915-46f6-96d1-7e8f40969b42'
-    ]
+  return withManagerAuth(async () => {
+    try {
+      const { userIds } = await request.json()
 
-    console.log('Attempting to delete users:', userIds)
-
-    for (const id of userIds) {
-      // First try to delete the auth user
-      const { error: authError } = await supabase.auth.admin.deleteUser(id)
-
-      if (authError) {
-        console.error(`Failed to delete user ${id}:`, authError)
-        // Try to delete from profiles table directly if auth deletion fails
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .delete()
-          .eq('id', id)
-
-        if (profileError) {
-          console.error(`Failed to delete profile ${id}:`, profileError)
-        } else {
-          console.log(`Successfully deleted profile ${id}`)
-        }
-      } else {
-        console.log(`Successfully deleted user ${id}`)
+      // Input validation to ensure userIds is an array
+      if (!Array.isArray(userIds)) {
+        return NextResponse.json(
+          { error: 'userIds must be an array' },
+          { status: 400 }
+        )
       }
-    }
 
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    console.error('Error deleting users:', error)
-    return NextResponse.json(
-      { 
-        error: error instanceof Error ? error.message : 'Unknown error occurred',
-        details: error instanceof Error ? error.stack : undefined
-      },
-      { status: 500 }
-    )
-  }
+      // Process each user deletion in parallel and collect results
+      const results = await Promise.all(
+        userIds.map(async (id) => {
+          const { error } = await supabase.auth.admin.deleteUser(id)
+          return { id, success: !error, error: error?.message }
+        })
+      )
+
+      return NextResponse.json({ results })
+    } catch (error) {
+      // Error handling with detailed error information for debugging
+      console.error('Delete users error:', error)
+      return NextResponse.json(
+        { 
+          error: error instanceof Error ? error.message : 'Unknown error occurred',
+          details: error instanceof Error ? error.stack : undefined
+        },
+        { status: 500 }
+      )
+    }
+  })
 } 

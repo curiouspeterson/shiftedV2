@@ -1,3 +1,23 @@
+/**
+ * Select Component Module
+ * 
+ * A collection of select-related components built with Radix UI Select primitives.
+ * Provides a complete set of accessible, styled select components for building
+ * dropdown menus and selection interfaces.
+ * 
+ * Features:
+ * - Accessible select implementation
+ * - Keyboard navigation
+ * - Custom triggers and items
+ * - Scrollable content
+ * - Group support
+ * - Item indicators
+ * - Separators
+ * - Consistent styling with design system
+ * 
+ * @module
+ */
+
 "use client"
 
 import * as React from "react"
@@ -6,12 +26,36 @@ import { Check, ChevronDown, ChevronUp } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Root select component
+ * Controls the open state and value selection
+ */
 const Select = SelectPrimitive.Root
 
+/**
+ * Select group component
+ * Groups related select items
+ */
 const SelectGroup = SelectPrimitive.Group
 
+/**
+ * Select value component
+ * Displays the selected value
+ */
 const SelectValue = SelectPrimitive.Value
 
+/**
+ * Select trigger component
+ * Button that opens the select dropdown
+ * 
+ * @component
+ * @example
+ * <Select>
+ *   <SelectTrigger>
+ *     <SelectValue placeholder="Select an option" />
+ *   </SelectTrigger>
+ * </Select>
+ */
 const SelectTrigger = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Trigger>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>
@@ -32,6 +76,10 @@ const SelectTrigger = React.forwardRef<
 ))
 SelectTrigger.displayName = SelectPrimitive.Trigger.displayName
 
+/**
+ * Select scroll up button component
+ * Button for scrolling up through select options
+ */
 const SelectScrollUpButton = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.ScrollUpButton>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.ScrollUpButton>
@@ -49,6 +97,10 @@ const SelectScrollUpButton = React.forwardRef<
 ))
 SelectScrollUpButton.displayName = SelectPrimitive.ScrollUpButton.displayName
 
+/**
+ * Select scroll down button component
+ * Button for scrolling down through select options
+ */
 const SelectScrollDownButton = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.ScrollDownButton>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.ScrollDownButton>
@@ -64,9 +116,24 @@ const SelectScrollDownButton = React.forwardRef<
     <ChevronDown className="h-4 w-4" />
   </SelectPrimitive.ScrollDownButton>
 ))
-SelectScrollDownButton.displayName =
-  SelectPrimitive.ScrollDownButton.displayName
+SelectScrollDownButton.displayName = SelectPrimitive.ScrollDownButton.displayName
 
+/**
+ * Select content component
+ * Container for select options with animations and positioning
+ * 
+ * @component
+ * @example
+ * <Select>
+ *   <SelectTrigger>
+ *     <SelectValue />
+ *   </SelectTrigger>
+ *   <SelectContent>
+ *     <SelectItem value="option1">Option 1</SelectItem>
+ *     <SelectItem value="option2">Option 2</SelectItem>
+ *   </SelectContent>
+ * </Select>
+ */
 const SelectContent = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Content>
@@ -99,6 +166,17 @@ const SelectContent = React.forwardRef<
 ))
 SelectContent.displayName = SelectPrimitive.Content.displayName
 
+/**
+ * Select label component
+ * Renders a label for a group of select options
+ * 
+ * @component
+ * @example
+ * <SelectContent>
+ *   <SelectLabel>Category</SelectLabel>
+ *   <SelectItem value="item1">Item 1</SelectItem>
+ * </SelectContent>
+ */
 const SelectLabel = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Label>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Label>
@@ -111,6 +189,16 @@ const SelectLabel = React.forwardRef<
 ))
 SelectLabel.displayName = SelectPrimitive.Label.displayName
 
+/**
+ * Select item component
+ * Individual selectable option with indicator
+ * 
+ * @component
+ * @example
+ * <SelectContent>
+ *   <SelectItem value="option1">Option 1</SelectItem>
+ * </SelectContent>
+ */
 const SelectItem = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Item>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Item>
@@ -133,6 +221,18 @@ const SelectItem = React.forwardRef<
 ))
 SelectItem.displayName = SelectPrimitive.Item.displayName
 
+/**
+ * Select separator component
+ * Visual divider between select items or groups
+ * 
+ * @component
+ * @example
+ * <SelectContent>
+ *   <SelectItem value="item1">Item 1</SelectItem>
+ *   <SelectSeparator />
+ *   <SelectItem value="item2">Item 2</SelectItem>
+ * </SelectContent>
+ */
 const SelectSeparator = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Separator>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Separator>

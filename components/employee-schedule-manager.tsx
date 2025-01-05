@@ -1,3 +1,21 @@
+/**
+ * Employee Schedule Manager Component
+ * 
+ * A comprehensive component for managing employee shift schedules.
+ * Provides functionality for viewing, adding, updating, and deleting shifts
+ * for individual employees.
+ * 
+ * Features:
+ * - Date-based schedule viewing
+ * - Shift creation with date and time selection
+ * - Shift deletion
+ * - Real-time updates
+ * - Loading states
+ * - Error handling with toast notifications
+ * 
+ * @component
+ */
+
 "use client"
 
 import { useState, useEffect } from "react"
@@ -10,20 +28,33 @@ import { toast } from "@/components/ui/use-toast"
 import { type Employee } from "@/types/employee"
 import { type ShiftAssignment } from "@/types/schedule"
 
+/**
+ * Props for the EmployeeScheduleManager component
+ * @interface
+ * @property {Employee} employee - The employee whose schedule is being managed
+ * @property {() => void} onUpdate - Callback function to be called after successful schedule updates
+ */
 interface EmployeeScheduleManagerProps {
   employee: Employee
   onUpdate: () => void
 }
 
 export function EmployeeScheduleManager({ employee, onUpdate }: EmployeeScheduleManagerProps) {
+  // State management for schedules, loading state, and date filtering
   const [schedules, setSchedules] = useState<ShiftAssignment[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0])
 
+  // Fetch schedules whenever the start date changes
   useEffect(() => {
     fetchSchedules()
   }, [startDate])
 
+  /**
+   * Fetches employee schedules from the database
+   * Filters schedules based on the selected start date
+   * Updates the schedules state and handles loading/error states
+   */
   const fetchSchedules = async () => {
     try {
       const supabase = createClient()
@@ -50,6 +81,11 @@ export function EmployeeScheduleManager({ employee, onUpdate }: EmployeeSchedule
     }
   }
 
+  /**
+   * Handles the addition of a new shift
+   * Processes form data and creates a new shift assignment in the database
+   * @param {React.FormEvent} e - Form submission event
+   */
   const handleAddShift = async (e: React.FormEvent) => {
     e.preventDefault()
     const form = e.target as HTMLFormElement
@@ -87,6 +123,11 @@ export function EmployeeScheduleManager({ employee, onUpdate }: EmployeeSchedule
     }
   }
 
+  /**
+   * Handles the deletion of an existing shift
+   * Removes the shift assignment from the database
+   * @param {string} id - ID of the shift to delete
+   */
   const handleDeleteShift = async (id: string) => {
     try {
       const supabase = createClient()
@@ -113,6 +154,12 @@ export function EmployeeScheduleManager({ employee, onUpdate }: EmployeeSchedule
     }
   }
 
+  /**
+   * Handles updates to an existing shift
+   * Modifies shift assignment details in the database
+   * @param {string} id - ID of the shift to update
+   * @param {Partial<ShiftAssignment>} updates - Partial shift assignment data to update
+   */
   const handleUpdateShift = async (id: string, updates: Partial<ShiftAssignment>) => {
     try {
       const supabase = createClient()

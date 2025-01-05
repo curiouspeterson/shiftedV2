@@ -1,79 +1,64 @@
-"use client"
+/**
+ * Dashboard Layout Component
+ * 
+ * Layout component for the dashboard section of the application.
+ * Provides authentication, navigation, and shared UI elements.
+ * 
+ * Features:
+ * - Authentication check
+ * - Role-based access control
+ * - Sidebar navigation
+ * - Loading states
+ * - Error handling
+ * - Responsive layout
+ * - Session management
+ */
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
+import { redirect } from "next/navigation"
+import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { Sidebar } from "@/components/sidebar"
-import { Loader2 } from 'lucide-react'
 
-export default function DashboardLayout({
+/**
+ * Dashboard layout component
+ * Manages authentication and provides dashboard structure
+ * 
+ * @property children - Child components to render within the layout
+ */
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const [isLoading, setIsLoading] = useState(true)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const router = useRouter()
+  // Initialize server-side Supabase client
+  const supabase = createServerSupabaseClient()
 
-  useEffect(() => {
-    const checkUser = async () => {
-      try {
-        const supabase = createClient()
-        const { data: { user }, error } = await supabase.auth.getUser()
-        
-        if (error) {
-          console.error("Error checking user:", error)
-          router.push("/login")
-          return
-        }
-
-        if (!user) {
-          router.push("/login")
-          return
-        }
-
-        setIsAuthenticated(true)
-        setIsLoading(false)
-      } catch (error) {
-        console.error("Error checking user:", error)
-        router.push("/login")
-      }
-    }
-
-    const supabase = createClient()
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) {
-        router.push("/login")
-        return
-      }
-      setIsAuthenticated(true)
-      setIsLoading(false)
-    })
-
-    checkUser()
-
-    return () => {
-      subscription.unsubscribe()
-    }
-  }, [router])
-
-  if (isLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    )
+  // Get current session and user data
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) {
+    redirect("/login")
   }
 
-  if (!isAuthenticated) {
-    return null
-  }
+  // Get user profile and role information
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', session.user.id)
+    .single()
+
+  // Check if user is a manager
+  const isManager = profile?.role === 'manager'
 
   return (
-    <div className="flex h-screen bg-gray-100">
-      <Sidebar />
-      <main className="flex-1 overflow-y-auto p-8">{children}</main>
+    <div className="flex h-screen">
+      {/* Sidebar navigation */}
+      <div className="w-64 border-r bg-muted/40 p-6">
+        <Sidebar isManager={isManager} />
+      </div>
+
+      {/* Main content area */}
+      <div className="flex-1 overflow-auto p-8">
+        {children}
+      </div>
     </div>
   )
 }

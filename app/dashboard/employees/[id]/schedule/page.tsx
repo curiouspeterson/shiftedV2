@@ -1,3 +1,17 @@
+/**
+ * Employee Schedule Page Component
+ * 
+ * A page component for managing individual employee schedules.
+ * Provides an interface for viewing and modifying employee work schedules.
+ * 
+ * Features:
+ * - Employee data fetching
+ * - Schedule management interface
+ * - Loading states
+ * - Error handling with toast notifications
+ * - Not found state handling
+ */
+
 "use client"
 
 import { useEffect, useState } from "react"
@@ -6,10 +20,21 @@ import { EmployeeScheduleManager } from "@/components/employee-schedule-manager"
 import { type Employee } from "@/types/employee"
 import { toast } from "@/components/ui/use-toast"
 
+/**
+ * Employee schedule page component
+ * Manages the display and interaction with employee schedules
+ * 
+ * @property params - Route parameters containing employee ID
+ */
 export default function EmployeeSchedulePage({ params }: { params: { id: string } }) {
+  // State management for employee data and loading
   const [employee, setEmployee] = useState<Employee | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
+  /**
+   * Fetches employee data from the database
+   * Updates state and handles errors with toast notifications
+   */
   const fetchEmployee = async () => {
     try {
       const supabase = createClient()
@@ -33,10 +58,12 @@ export default function EmployeeSchedulePage({ params }: { params: { id: string 
     }
   }
 
+  // Fetch employee data on component mount
   useEffect(() => {
     fetchEmployee()
   }, [params.id])
 
+  // Show loading spinner while fetching data
   if (isLoading) {
     return (
       <div className="flex h-[200px] items-center justify-center">
@@ -45,6 +72,7 @@ export default function EmployeeSchedulePage({ params }: { params: { id: string 
     )
   }
 
+  // Show not found message if employee doesn't exist
   if (!employee) {
     return (
       <div className="text-center">

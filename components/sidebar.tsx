@@ -1,76 +1,118 @@
+/**
+ * Sidebar Navigation Component
+ * 
+ * Main navigation component for the dashboard.
+ * Provides links to different sections and user actions.
+ * 
+ * Features:
+ * - Responsive navigation menu
+ * - Active route highlighting
+ * - User role-based access
+ * - Logout functionality
+ * - Mobile-friendly design
+ * - Automatic route handling
+ */
+
 "use client"
 
 import Link from "next/link"
-import { useRouter, usePathname } from "next/navigation"
-import { Calendar, Users, Settings, LogOut, Clock, Clock4, Activity } from 'lucide-react'
-import { createClient } from "@/lib/supabase/client"
+import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
+import { createClient } from "@/lib/supabase/client"
+import { useRouter } from "next/navigation"
+import { toast } from "@/components/ui/use-toast"
 
-const navItems = [
-  { href: "/dashboard", icon: Calendar, label: "Dashboard" },
-  { href: "/dashboard/schedule", icon: Clock, label: "Schedule" },
-  { href: "/dashboard/employees", icon: Users, label: "Employees" },
-  { href: "/dashboard/shifts", icon: Clock4, label: "Shifts" },
-  { href: "/dashboard/availability", icon: Clock, label: "Availability" },
-  { href: "/dashboard/time-off", icon: Calendar, label: "Time Off" },
-  { href: "/dashboard/status", icon: Activity, label: "Status" },
-  { href: "/dashboard/settings", icon: Settings, label: "Settings" },
+/**
+ * Navigation item structure
+ * @property href - Route path
+ * @property label - Display text
+ * @property managerOnly - Whether the item is only visible to managers
+ */
+interface NavItem {
+  href: string
+  label: string
+  managerOnly?: boolean
+}
+
+/**
+ * Navigation items configuration
+ * Defines available routes and their properties
+ */
+const navItems: NavItem[] = [
+  { href: "/dashboard", label: "Dashboard" },
+  { href: "/dashboard/schedule", label: "Schedule" },
+  { href: "/dashboard/availability", label: "Availability" },
+  { href: "/dashboard/time-off", label: "Time Off" },
+  { href: "/dashboard/employees", label: "Employees", managerOnly: true },
+  { href: "/dashboard/shifts", label: "Shifts", managerOnly: true },
+  { href: "/dashboard/status", label: "Status" },
 ]
 
-export function Sidebar() {
-  const router = useRouter()
-  const pathname = usePathname()
+/**
+ * Component props
+ * @property isManager - Whether the current user has manager role
+ */
+interface SidebarProps {
+  isManager: boolean
+}
 
+/**
+ * Sidebar navigation component
+ * Manages navigation state and user actions
+ */
+export function Sidebar({ isManager }: SidebarProps) {
+  const pathname = usePathname()
+  const router = useRouter()
+  const supabase = createClient()
+
+  /**
+   * Handles user logout
+   * Signs out the user and redirects to login page
+   */
   const handleLogout = async () => {
     try {
-      const supabase = createClient()
       const { error } = await supabase.auth.signOut()
-      if (error) {
-        console.error("Error signing out:", error)
-        return
-      }
-      router.push("/login")
+      if (error) throw error
+
+      router.push('/login')
     } catch (error) {
-      console.error("Error signing out:", error)
+      console.error('Error signing out:', error)
+      toast({
+        title: "Error",
+        description: "Failed to sign out. Please try again.",
+        variant: "destructive",
+      })
     }
   }
 
   return (
-    <nav className="w-64 bg-white shadow-md flex flex-col">
-      <div className="p-4">
-        <h1 className="text-2xl font-bold text-gray-800">Schedule Manager</h1>
-      </div>
-      <ul className="space-y-2 p-4 flex-grow">
-        {navItems.map((item) => {
-          const isActive = pathname === item.href
-          return (
-            <li key={item.href}>
-              <Link
-                href={item.href}
-                className={cn(
-                  "flex items-center space-x-2 rounded-md p-2 text-gray-600 hover:bg-gray-100",
-                  isActive && "bg-gray-100 text-gray-900 font-medium"
-                )}
-              >
-                <item.icon className="h-5 w-5" />
-                <span>{item.label}</span>
-              </Link>
-            </li>
-          )
-        })}
-      </ul>
-      <div className="p-4">
-        <Button 
-          onClick={handleLogout} 
-          className="w-full flex items-center justify-center"
-          variant="destructive"
-        >
-          <LogOut className="mr-2 h-4 w-4" />
-          Logout
-        </Button>
-      </div>
-    </nav>
+    <div className="flex flex-col h-full">
+      {/* Navigation links */}
+      <nav className="space-y-2 flex-1">
+        {navItems
+          .filter(item => !item.managerOnly || isManager)
+          .map(item => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`block px-3 py-2 rounded-md hover:bg-accent ${
+                pathname === item.href ? 'bg-accent' : ''
+              }`}
+            >
+              {item.label}
+            </Link>
+          ))}
+      </nav>
+
+      {/* Logout button */}
+      <Button
+        variant="ghost"
+        className="w-full justify-start px-3"
+        onClick={handleLogout}
+      >
+        Logout
+      </Button>
+    </div>
   )
 }
 

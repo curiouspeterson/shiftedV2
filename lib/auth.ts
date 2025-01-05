@@ -1,80 +1,127 @@
-import { createClient } from '@/lib/supabase/client'
-import { AuthError } from '@supabase/supabase-js'
+/**
+ * Authentication Utility Module
+ * 
+ * This module provides comprehensive authentication functionality using Supabase,
+ * including user sign-in, sign-up, sign-out, and route protection capabilities.
+ * It handles both client-side authentication flows and server-side route protection,
+ * particularly for manager-level access control.
+ */
 
-export async function signUp(email: string, password: string, fullName: string) {
-  try {
-    const supabase = createClient()
-    
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
-        },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
-    })
+import { createBrowserClient } from './supabase/client'
+import { Database } from '@/types/supabase'
+import { NextRequest, NextResponse } from 'next/server'
 
-    if (error) {
-      console.error('Signup error:', error)
-      return { error }
-    }
+/**
+ * Supabase Client Instance
+ * 
+ * Creates and exports a singleton instance of the Supabase client
+ * for client-side operations. This ensures we maintain a single
+ * connection throughout the application lifecycle.
+ */
+export const supabaseClient = createBrowserClient()
 
-    if (!data.user) {
-      return { error: new Error('No user returned from signup') }
-    }
+/**
+ * Authentication Methods
+ * 
+ * Collection of core authentication functions for handling user
+ * authentication flows including sign-in, sign-up, and sign-out.
+ */
 
-    // Create profile record
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .insert([
-        {
-          id: data.user.id,
-          full_name: fullName,
-          email: email,
-          role: 'employee',
-          is_active: true,
-        },
-      ])
+/**
+ * Sign in a user with email and password.
+ * Attempts to authenticate a user using Supabase authentication.
+ * 
+ * @param email - User's email address.
+ * @param password - User's password.
+ * @returns Signed-in user data including session information.
+ * @throws Error if sign-in fails with the specific error message from Supabase.
+ */
+export async function signIn(email: string, password: string) {
+  const { error, data } = await supabaseClient.auth.signInWithPassword({
+    email,
+    password,
+  })
 
-    if (profileError) {
-      console.error('Profile creation error:', profileError)
-      return { error: profileError }
-    }
+  if (error) {
+    throw new Error(error.message)
+  }
 
-    return { data }
-  } catch (err) {
-    console.error('Unexpected error during signup:', err)
-    return { error: err as Error }
+  return data
+}
+
+/**
+ * Sign up a new user with email and password.
+ * Creates a new user account in Supabase authentication system.
+ * 
+ * @param email - User's email address.
+ * @param password - User's password.
+ * @returns Newly created user data including confirmation status.
+ * @throws Error if sign-up fails with the specific error message from Supabase.
+ */
+export async function signUp(email: string, password: string) {
+  const { error, data } = await supabaseClient.auth.signUp({
+    email,
+    password,
+  })
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return data
+}
+
+/**
+ * Sign out the current user.
+ * Terminates the current user session in Supabase.
+ * 
+ * @throws Error if sign-out operation fails with the specific error message from Supabase.
+ */
+export async function signOut() {
+  const { error } = await supabaseClient.auth.signOut()
+  if (error) {
+    throw new Error(error.message)
   }
 }
 
-export async function signIn(email: string, password: string) {
-  try {
-    const supabase = createClient()
-    
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+/**
+ * Route Protection
+ * 
+ * Authentication middleware for protecting routes that require
+ * manager-level access. This higher-order function wraps route
+ * handlers to ensure only authenticated managers can access
+ * certain endpoints.
+ */
 
-    if (error) {
-      console.error('Login error:', error)
-      return { error }
+/**
+ * Higher-order function to protect routes that require manager authentication.
+ * Verifies both user authentication and manager role before allowing access.
+ * 
+ * @param handler - The route handler to protect.
+ * @returns Protected route handler that first validates manager authentication.
+ */
+export function withManagerAuth(handler: (req: NextRequest) => Promise<NextResponse>) {
+  return async (req: NextRequest) => {
+    const supabase = createBrowserClient()
+    const { data: { session }, error } = await supabase.auth.getSession()
+
+    // Check for valid authentication session
+    if (error || !session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Verify the session was created
-    const { data: { session } } = await supabase.auth.getSession()
-    console.log('Session after login:', {
-      hasSession: !!session,
-      user: session?.user,
-      accessToken: session?.access_token ? 'present' : 'missing'
-    })
+    // Verify manager role in profiles table
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', session.user.id)
+      .single()
 
-    return { data }
-  } catch (err) {
-    console.error('Unexpected error during login:', err)
-    return { error: err as Error }
+    // Ensure user has manager role
+    if (!profile || profile.role !== 'manager') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    return handler(req)
   }
 } 
