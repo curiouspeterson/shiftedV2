@@ -1,5 +1,19 @@
 "use client"
 
+/**
+ * Dashboard Content Component
+ * 
+ * Main dashboard component that displays employee schedule information and statistics.
+ * This component provides:
+ * - Schedule overview with calendar
+ * - Time off request management
+ * - Upcoming shifts display
+ * - Schedule statistics (hours, shifts)
+ * 
+ * The component uses Supabase for data operations and integrates multiple
+ * sub-components to create a comprehensive dashboard view.
+ */
+
 import * as React from "react"
 import { useState, useEffect } from "react"
 import { createBrowserClient } from '@supabase/ssr'
@@ -8,18 +22,21 @@ import { EmployeeSchedule } from "@/components/employee-schedule"
 import { TimeOffRequestsList } from "@/components/time-off-requests-list"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
+// Interface for schedule statistics
 interface ScheduleStats {
-  totalHours: number
-  weeklyHours: number
-  pendingShifts: number
-  completedShifts: number
+  totalHours: number      // Total hours scheduled
+  weeklyHours: number     // Hours scheduled for current week
+  pendingShifts: number   // Number of pending shift assignments
+  completedShifts: number // Number of completed shifts
 }
 
+// Props interface for the dashboard component
 export interface DashboardContentProps {
-  userEmail: string | null
+  userEmail: string | null // Email of the logged-in user
 }
 
 export function DashboardContent({ userEmail }: DashboardContentProps) {
+  // State management for statistics and loading
   const [stats, setStats] = useState<ScheduleStats>({
     totalHours: 0,
     weeklyHours: 0,
@@ -28,6 +45,7 @@ export function DashboardContent({ userEmail }: DashboardContentProps) {
   })
   const [isLoading, setIsLoading] = useState(true)
 
+  // Fetch statistics when user email changes
   useEffect(() => {
     const fetchStats = async () => {
       try {
@@ -36,19 +54,39 @@ export function DashboardContent({ userEmail }: DashboardContentProps) {
           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
         )
 
-        // Get all shifts for the logged-in user
+        // Get the user's profile ID first
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('email', userEmail)
+          .single()
+
+        if (profileError) throw profileError
+
+        // Get all shifts for the logged-in user with requirement details
         const { data: shifts, error } = await supabase
           .from('shifts')
-          .select('*')
-          .eq('user_email', userEmail)
+          .select(`
+            *,
+            shift_requirement:shift_requirements (
+              name
+            )
+          `)
+          .eq('profile_id', profileData.id)
 
         if (error) throw error
 
-        // Calculate stats from shifts data
+        // Calculate date range for current week
         const now = new Date()
-        const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()))
-        const endOfWeek = new Date(now.setDate(now.getDate() - now.getDay() + 6))
+        const startOfWeek = new Date(now)
+        startOfWeek.setDate(now.getDate() - now.getDay())
+        startOfWeek.setHours(0, 0, 0, 0)
+        
+        const endOfWeek = new Date(now)
+        endOfWeek.setDate(now.getDate() - now.getDay() + 6)
+        endOfWeek.setHours(23, 59, 59, 999)
 
+        // Calculate statistics from shift data
         const calculatedStats = shifts?.reduce((acc, shift) => {
           const shiftDate = new Date(shift.date)
           const startTime = new Date(`${shift.date}T${shift.start_time}`)
@@ -63,7 +101,7 @@ export function DashboardContent({ userEmail }: DashboardContentProps) {
             pendingShifts: shift.status === 'pending' 
               ? acc.pendingShifts + 1 
               : acc.pendingShifts,
-            completedShifts: shift.status === 'accepted' 
+            completedShifts: shift.status === 'completed' 
               ? acc.completedShifts + 1 
               : acc.completedShifts
           }
@@ -94,6 +132,7 @@ export function DashboardContent({ userEmail }: DashboardContentProps) {
 
   return (
     <div className="space-y-6">
+      {/* User email display */}
       {userEmail && (
         <p className="text-sm text-muted-foreground">
           Logged in as: {userEmail}
@@ -101,7 +140,9 @@ export function DashboardContent({ userEmail }: DashboardContentProps) {
       )}
       
       <div className="grid gap-6 md:grid-cols-2">
+        {/* Left column - Schedule and Time Off */}
         <div className="space-y-6">
+          {/* Schedule Overview */}
           <Card>
             <CardHeader>
               <CardTitle>Schedule Overview</CardTitle>
@@ -111,6 +152,7 @@ export function DashboardContent({ userEmail }: DashboardContentProps) {
             </CardContent>
           </Card>
 
+          {/* Time Off Requests */}
           <Card>
             <CardHeader>
               <CardTitle>Time Off Requests</CardTitle>
@@ -121,7 +163,9 @@ export function DashboardContent({ userEmail }: DashboardContentProps) {
           </Card>
         </div>
 
+        {/* Right column - Upcoming Shifts and Stats */}
         <div className="space-y-6">
+          {/* Upcoming Shifts */}
           <Card>
             <CardHeader>
               <CardTitle>Upcoming Shifts</CardTitle>
@@ -131,6 +175,7 @@ export function DashboardContent({ userEmail }: DashboardContentProps) {
             </CardContent>
           </Card>
 
+          {/* Schedule Statistics */}
           <Card>
             <CardHeader>
               <CardTitle>Schedule Stats</CardTitle>

@@ -2,15 +2,15 @@
  * Assign Shift Dialog Component
  * 
  * A modal dialog component for assigning employees to specific shifts.
- * Handles employee availability filtering and shift assignment operations.
+ * This component handles:
+ * - Fetching available employees based on their availability
+ * - Filtering employees based on their schedule conflicts
+ * - Assigning shifts to employees
+ * - Displaying employee selection UI
+ * - Error handling and success notifications
  * 
- * Features:
- * - Employee availability filtering
- * - Shift assignment handling
- * - Loading states
- * - Error handling
- * - Success notifications
- * - Real-time updates
+ * The component integrates with Supabase for data operations and uses
+ * shadcn/ui components for the user interface.
  */
 
 "use client"
@@ -37,26 +37,15 @@ import { type ShiftRequirement } from "@/types/schedule"
 import { type Employee } from "@/types/employee"
 import { Label } from "@/components/ui/label"
 
-/**
- * Props for the AssignShiftDialog component
- * @property open - Whether the dialog is open
- * @property onOpenChange - Callback for dialog open state changes
- * @property shiftRequirement - The shift requirement to assign
- * @property date - The date for the shift assignment
- * @property onSuccess - Callback for successful assignment
- */
+// Props interface for the AssignShiftDialog component
 interface AssignShiftDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  shiftRequirement: ShiftRequirement
-  date: string
-  onSuccess: () => void
+  open: boolean                                    // Controls dialog visibility
+  onOpenChange: (open: boolean) => void           // Callback for dialog state changes
+  shiftRequirement: ShiftRequirement              // The shift requirement to be assigned
+  date: string                                    // The date for the shift assignment
+  onSuccess: () => void                          // Callback for successful assignment
 }
 
-/**
- * Dialog component for assigning employees to shifts
- * Filters employees based on availability and handles assignment process
- */
 export function AssignShiftDialog({
   open,
   onOpenChange,
@@ -64,7 +53,7 @@ export function AssignShiftDialog({
   date,
   onSuccess,
 }: AssignShiftDialogProps) {
-  // State management
+  // State management for employees, selection, and loading
   const [employees, setEmployees] = useState<Employee[]>([])
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("")
   const [isLoading, setIsLoading] = useState(false)
@@ -77,8 +66,11 @@ export function AssignShiftDialog({
   }, [open, shiftRequirement, date])
 
   /**
-   * Fetches employees available for the shift
-   * Filters based on availability and active status
+   * Fetches available employees from Supabase
+   * Filters employees based on:
+   * - Active status
+   * - Availability for the shift time
+   * - Schedule conflicts
    */
   const fetchAvailableEmployees = async () => {
     try {
@@ -88,6 +80,7 @@ export function AssignShiftDialog({
       })
       
       const supabase = createClient()
+      // Query profiles with their availability
       const { data, error } = await supabase
         .from('profiles')
         .select(`
@@ -107,7 +100,7 @@ export function AssignShiftDialog({
       
       console.log('Raw profiles data:', data)
 
-      // Transform employees and check availability
+      // Process and filter employees based on availability
       const employeesWithAvailability = (data || []).map(employee => {
         const employeeWithAvailability = {
           ...employee,
@@ -119,6 +112,7 @@ export function AssignShiftDialog({
         const dayOfWeek = new Date(date).getDay()
         console.log('Shift day of week:', dayOfWeek)
         
+        // Check if employee has availability for this shift
         const hasAvailability = employeeWithAvailability.availability?.some(slot => {
           const matches = (
             slot.day_of_week === dayOfWeek &&
@@ -154,27 +148,29 @@ export function AssignShiftDialog({
   }
 
   /**
-   * Checks if a shift overlaps with another shift
+   * Utility function to check if two time periods overlap
+   * Used for checking schedule conflicts
    */
   const hasTimeOverlap = (start1: string, end1: string, start2: string, end2: string) => {
     return start1 < end2 && end1 > start2
   }
 
   /**
-   * Checks if an employee has any conflicting shifts on the given date
+   * Checks for any conflicting shifts for the selected employee
+   * Returns true if conflicts exist, false otherwise
    */
   const checkForConflicts = async (employeeId: string) => {
     try {
       const supabase = createClient()
       const { data: existingShifts, error } = await supabase
-        .from('shift_assignments')
+        .from('shifts')
         .select('*')
         .eq('profile_id', employeeId)
         .eq('date', date)
 
       if (error) throw error
 
-      // Check for any overlapping shifts
+      // Check for overlapping shifts
       const conflicts = existingShifts?.filter(shift => 
         hasTimeOverlap(
           shift.start_time,
@@ -192,15 +188,18 @@ export function AssignShiftDialog({
   }
 
   /**
-   * Handles shift assignment
-   * Creates a new shift assignment record
+   * Handles the shift assignment process
+   * - Checks for conflicts
+   * - Gets employee email
+   * - Creates the shift assignment
+   * - Handles success/error states
    */
   const handleAssign = async () => {
     if (!selectedEmployeeId) return
 
     setIsLoading(true)
     try {
-      // Check for conflicts before assigning
+      // Check for schedule conflicts
       const hasConflicts = await checkForConflicts(selectedEmployeeId)
       if (hasConflicts) {
         toast({
@@ -212,15 +211,28 @@ export function AssignShiftDialog({
       }
 
       const supabase = createClient()
+      
+      // Get the employee's email for the shift record
+      const { data: employeeData, error: employeeError } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('id', selectedEmployeeId)
+        .single()
+
+      if (employeeError) throw employeeError
+
+      // Create the shift assignment
       const { error } = await supabase
-        .from('shift_assignments')
+        .from('shifts')
         .insert([
           {
             profile_id: selectedEmployeeId,
+            user_email: employeeData.email,
             shift_requirement_id: shiftRequirement.id,
             date,
             start_time: shiftRequirement.start_time,
             end_time: shiftRequirement.end_time,
+            status: 'pending'
           },
         ])
 
@@ -244,6 +256,7 @@ export function AssignShiftDialog({
     }
   }
 
+  // Render the dialog with employee selection UI
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -251,7 +264,6 @@ export function AssignShiftDialog({
           <DialogTitle>Assign Shift</DialogTitle>
         </DialogHeader>
 
-        {/* Employee selection */}
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label>Select Employee</Label>
@@ -278,7 +290,7 @@ export function AssignShiftDialog({
             </Select>
           </div>
 
-          {/* Warning message for no availability */}
+          {/* Display warning if no employees are available */}
           {employees.length > 0 && employees.every(e => !e.hasAvailability) && (
             <div className="text-sm text-yellow-600">
               No employees have set their availability for this time slot.
@@ -287,7 +299,6 @@ export function AssignShiftDialog({
           )}
         </div>
 
-        {/* Dialog actions */}
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel

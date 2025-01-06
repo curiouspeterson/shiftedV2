@@ -2,16 +2,16 @@
  * Weekly Schedule Component
  * 
  * A comprehensive component for displaying and managing weekly shift schedules.
- * Provides a calendar-like interface for viewing and assigning shifts across a week.
+ * This component provides:
+ * - Weekly calendar view with day-by-day shift display
+ * - Shift requirement management
+ * - Employee assignment tracking
+ * - Week navigation controls
+ * - Integration with AssignShiftDialog for new assignments
  * 
- * Features:
- * - Weekly calendar view
- * - Shift requirement display
- * - Employee assignment management
- * - Week navigation
- * - Loading states
- * - Error handling
- * - Real-time updates
+ * The component uses Supabase for data operations and shadcn/ui
+ * components for the user interface. It manages both shift requirements
+ * and actual shift assignments in a weekly calendar format.
  */
 
 "use client"
@@ -26,22 +26,16 @@ import { toast } from "@/components/ui/use-toast"
 import { type WeeklySchedule, type ShiftRequirement, type ShiftAssignment } from "@/types/schedule"
 import { AssignShiftDialog } from "./assign-shift-dialog"
 
-/**
- * Extended shift assignment interface with profile information
- * @property profile - Employee profile information
- */
+// Extended interface for shift assignments with profile and requirement details
 interface ScheduleAssignment extends ShiftAssignment {
   profile: {
     full_name: string
   }
+  shift_requirement: ShiftRequirement
 }
 
-/**
- * Weekly schedule management component
- * Handles display and management of weekly shift schedules
- */
 export function WeeklySchedule() {
-  // State management
+  // State management for schedule data and UI controls
   const [weekStart, setWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 0 }))
   const [schedule, setSchedule] = useState<WeeklySchedule>({})
   const [requirements, setRequirements] = useState<ShiftRequirement[]>([])
@@ -49,7 +43,7 @@ export function WeeklySchedule() {
   const [selectedRequirement, setSelectedRequirement] = useState<ShiftRequirement | null>(null)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
 
-  // Fetch schedule and requirements on week change
+  // Fetch schedule and requirements when week changes
   useEffect(() => {
     fetchSchedule()
     fetchRequirements()
@@ -57,20 +51,27 @@ export function WeeklySchedule() {
 
   /**
    * Fetches shift assignments for the current week
-   * Groups assignments by date
+   * Includes profile and shift requirement details
+   * Groups assignments by date for easy display
    */
   const fetchSchedule = async () => {
     try {
       const supabase = createClient()
       const { data: assignments, error } = await supabase
-        .from('shift_assignments')
-        .select('*, profile:profiles(full_name)')
+        .from('shifts')
+        .select(`
+          *,
+          profile:profiles(full_name),
+          shift_requirement:shift_requirements(*)
+        `)
         .gte('date', format(weekStart, 'yyyy-MM-dd'))
         .lte('date', format(addDays(weekStart, 6), 'yyyy-MM-dd'))
+        .order('date')
+        .order('start_time')
 
       if (error) throw error
 
-      // Group assignments by date
+      // Group assignments by date for calendar display
       const groupedSchedule: WeeklySchedule = {}
       assignments?.forEach((assignment: ScheduleAssignment) => {
         const date = assignment.date
@@ -95,8 +96,8 @@ export function WeeklySchedule() {
   }
 
   /**
-   * Fetches shift requirements
-   * Orders by day of week and start time
+   * Fetches shift requirements from the database
+   * Orders them by day of week and start time
    */
   const fetchRequirements = async () => {
     try {
@@ -122,23 +123,18 @@ export function WeeklySchedule() {
   }
 
   /**
-   * Navigates to the previous week
+   * Navigation handlers for week selection
    */
   const handlePreviousWeek = () => {
     setWeekStart(prev => addDays(prev, -7))
   }
 
-  /**
-   * Navigates to the next week
-   */
   const handleNextWeek = () => {
     setWeekStart(prev => addDays(prev, 7))
   }
 
   /**
-   * Formats time string to readable format
-   * @param time - Time string in HH:MM format
-   * @returns Formatted time string
+   * Utility function to format time strings for display
    */
   const formatTime = (time: string) => {
     const [hours, minutes] = time.split(':')
@@ -148,7 +144,7 @@ export function WeeklySchedule() {
     return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
   }
 
-  // Show loading spinner while fetching data
+  // Show loading spinner while data is being fetched
   if (isLoading) {
     return (
       <div className="flex h-[450px] items-center justify-center">
@@ -157,6 +153,7 @@ export function WeeklySchedule() {
     )
   }
 
+  // Render weekly calendar view
   return (
     <div className="space-y-4">
       {/* Week navigation header */}
@@ -179,6 +176,7 @@ export function WeeklySchedule() {
         {Array.from({ length: 7 }, (_, i) => {
           const date = addDays(weekStart, i)
           const dateStr = format(date, 'yyyy-MM-dd')
+          // Filter requirements for current day
           const dayRequirements = requirements.filter(
             req => req.day_of_week === date.getDay()
           )
@@ -189,9 +187,10 @@ export function WeeklySchedule() {
                 {/* Day header */}
                 <h3 className="font-medium">{format(date, 'EEEE')}</h3>
                 <p className="text-sm text-gray-500">{format(date, 'MMM d')}</p>
-                {/* Shift requirements */}
+                {/* Shift requirements and assignments */}
                 <div className="mt-4 space-y-2">
                   {dayRequirements.map(req => {
+                    // Get assignments for this requirement
                     const assignedEmployees = schedule[dateStr]?.filter(
                       shift => shift.shift_requirement_id === req.id
                     ) || []
@@ -206,11 +205,13 @@ export function WeeklySchedule() {
                           setSelectedDate(dateStr)
                         }}
                       >
-                        {/* Shift time */}
                         <p className="font-medium">
+                          {req.name}
+                        </p>
+                        <p className="text-sm text-gray-500">
                           {formatTime(req.start_time)} - {formatTime(req.end_time)}
                         </p>
-                        {/* Assigned employees */}
+                        {/* Employee assignments */}
                         <div className="mt-1 space-y-1">
                           {assignedEmployees.map(assignment => (
                             <p key={assignment.id} className="text-gray-500">
@@ -234,7 +235,7 @@ export function WeeklySchedule() {
         })}
       </div>
 
-      {/* Shift assignment dialog */}
+      {/* Assignment dialog */}
       {selectedRequirement && selectedDate && (
         <AssignShiftDialog
           open={true}

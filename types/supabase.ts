@@ -23,6 +23,7 @@ export type Database = {
           full_name: string | null
           email: string | null
           role: 'employee' | 'manager'
+          position: 'Dispatcher' | 'Shift Supervisor' | 'Management'
           is_active: boolean
           created_at: string
           updated_at: string
@@ -32,6 +33,7 @@ export type Database = {
           full_name?: string | null
           email?: string | null
           role?: 'employee' | 'manager'
+          position?: 'Dispatcher' | 'Shift Supervisor' | 'Management'
           is_active?: boolean
           created_at?: string
           updated_at?: string
@@ -41,6 +43,7 @@ export type Database = {
           full_name?: string | null
           email?: string | null
           role?: 'employee' | 'manager'
+          position?: 'Dispatcher' | 'Shift Supervisor' | 'Management'
           is_active?: boolean
           created_at?: string
           updated_at?: string
@@ -160,6 +163,96 @@ export type Database = {
           updated_at?: string
         }
       }
+
+      /**
+       * Shifts Table
+       * Records actual shifts for employees
+       * 
+       * Tracks individual shift assignments, status, and details
+       */
+      shifts: {
+        Row: {
+          id: string
+          profile_id: string
+          user_email: string
+          shift_requirement_id: string | null
+          date: string
+          start_time: string
+          end_time: string
+          status: 'pending' | 'accepted' | 'rejected' | 'completed'
+          notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          profile_id: string
+          user_email: string
+          shift_requirement_id?: string | null
+          date: string
+          start_time: string
+          end_time: string
+          status?: 'pending' | 'accepted' | 'rejected' | 'completed'
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          profile_id?: string
+          user_email?: string
+          shift_requirement_id?: string | null
+          date?: string
+          start_time?: string
+          end_time?: string
+          status?: 'pending' | 'accepted' | 'rejected' | 'completed'
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+
+      /**
+       * Time Off Requests Table
+       * Manages employee time off requests
+       * 
+       * Tracks vacation, sick leave, and other time off requests
+       */
+      time_off_requests: {
+        Row: {
+          id: string
+          profile_id: string
+          start_date: string
+          end_date: string
+          reason: string | null
+          status: 'pending' | 'approved' | 'rejected'
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          profile_id: string
+          start_date: string
+          end_date: string
+          reason?: string | null
+          status?: 'pending' | 'approved' | 'rejected'
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          profile_id?: string
+          start_date?: string
+          end_date?: string
+          reason?: string | null
+          status?: 'pending' | 'approved' | 'rejected'
+          created_at?: string
+          updated_at?: string
+        }
+      }
+    }
+    Enums: {
+      position_type: 'Dispatcher' | 'Shift Supervisor' | 'Management'
     }
   }
 } 

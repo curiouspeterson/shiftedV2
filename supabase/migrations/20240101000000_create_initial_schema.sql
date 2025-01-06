@@ -1,9 +1,24 @@
+-- Drop existing tables if they exist
+drop table if exists public.time_off_requests cascade;
+drop table if exists public.shifts cascade;
+drop table if exists public.shift_assignments cascade;
+drop table if exists public.shift_requirements cascade;
+drop table if exists public.employee_availability cascade;
+drop table if exists public.profiles cascade;
+
+-- Drop existing types
+drop type if exists public.position_type cascade;
+
+-- Create position type enum
+create type public.position_type as enum ('Dispatcher', 'Shift Supervisor', 'Management');
+
 -- Create profiles table
 create table if not exists public.profiles (
     id uuid references auth.users on delete cascade primary key,
     full_name text,
     email text unique,
     role text check (role in ('employee', 'manager')) not null default 'employee',
+    position position_type not null default 'Dispatcher'::position_type,
     is_active boolean not null default true,
     created_at timestamp with time zone not null default timezone('utc'::text, now()),
     updated_at timestamp with time zone not null default timezone('utc'::text, now())
@@ -60,6 +75,19 @@ create table if not exists public.time_off_requests (
     constraint unique_time_off_request unique(profile_id, start_date, end_date)
 );
 
+-- Create shift_assignments table
+create table if not exists public.shift_assignments (
+    id uuid primary key default gen_random_uuid(),
+    profile_id uuid not null references public.profiles(id) on delete cascade,
+    shift_requirement_id uuid not null references public.shift_requirements(id),
+    date date not null,
+    start_time time not null,
+    end_time time not null,
+    created_at timestamp with time zone not null default timezone('utc'::text, now()),
+    updated_at timestamp with time zone not null default timezone('utc'::text, now()),
+    constraint unique_shift_assignment unique(profile_id, shift_requirement_id, date)
+);
+
 -- Create function to handle new user creation
 create or replace function public.handle_new_user()
 returns trigger
@@ -67,12 +95,13 @@ language plpgsql
 security definer set search_path = public
 as $$
 begin
-    insert into public.profiles (id, full_name, email, role, is_active)
+    insert into public.profiles (id, full_name, email, role, position, is_active)
     values (
         new.id,
         coalesce(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)),
         new.email,
         coalesce(new.raw_user_meta_data->>'role', 'employee'),
+        coalesce(new.raw_user_meta_data->>'position', 'Dispatcher'),
         true
     );
     return new;
@@ -95,7 +124,8 @@ create or replace function public.update_profile_raw(
   p_id uuid,
   p_full_name text,
   p_role text,
-  p_email text
+  p_email text,
+  p_position position_type
 ) returns jsonb
 language plpgsql
 security definer
@@ -108,6 +138,7 @@ begin
         full_name = p_full_name,
         role = p_role,
         email = p_email,
+        position = p_position,
         updated_at = now()
     where id = p_id
     returning to_jsonb(profiles.*) into updated_profile;
@@ -115,7 +146,10 @@ begin
 end;
 $$;
 
--- Create triggers
+-- Drop existing trigger first
+drop trigger if exists on_auth_user_created on auth.users;
+
+-- Then create the trigger
 create trigger on_auth_user_created
     after insert on auth.users
     for each row execute procedure public.handle_new_user();
@@ -136,64 +170,158 @@ create trigger update_time_off_requests_updated_at
     before update on public.time_off_requests 
     for each row execute function public.update_updated_at();
 
+create trigger update_shift_assignments_updated_at 
+    before update on public.shift_assignments 
+    for each row execute function public.update_updated_at();
+
 -- Enable RLS on all tables
 alter table public.profiles enable row level security;
 alter table public.employee_availability enable row level security;
 alter table public.shift_requirements enable row level security;
 alter table public.shifts enable row level security;
 alter table public.time_off_requests enable row level security;
+alter table public.shift_assignments enable row level security;
 
 -- RLS policies for profiles
-create policy "Users can view their own profile" on public.profiles for select using (auth.uid() = id);
-create policy "Users can update their own profile" on public.profiles for update using (auth.uid() = id);
-create policy "Managers can view all profiles" on public.profiles for select using (exists (select 1 from public.profiles where id = auth.uid() and role = 'manager'));
-create policy "Managers can update all profiles" on public.profiles for update using (exists (select 1 from public.profiles where id = auth.uid() and role = 'manager'));
-create policy "Managers can delete profiles" on public.profiles for delete using (exists (select 1 from public.profiles where id = auth.uid() and role = 'manager'));
-create policy "System can create profiles" on public.profiles for insert with check (true);
+create policy "Users can view their own profile" on public.profiles
+    for select using (auth.uid() = id);
+
+create policy "Users can update their own profile" on public.profiles
+    for update using (auth.uid() = id);
+
+create policy "Managers can view all profiles" on public.profiles
+    for select using (
+        auth.uid() IN (
+            SELECT id FROM public.profiles WHERE role = 'manager'
+        )
+    );
+
+create policy "Managers can update all profiles" on public.profiles
+    for update using (
+        auth.uid() IN (
+            SELECT id FROM public.profiles WHERE role = 'manager'
+        )
+    );
+
+create policy "Managers can delete profiles" on public.profiles
+    for delete using (
+        auth.uid() IN (
+            SELECT id FROM public.profiles WHERE role = 'manager'
+        )
+    );
+
+create policy "System can create profiles" on public.profiles
+    for insert with check (true);
 
 -- RLS policies for employee_availability
-create policy "Users can view own availability" on public.employee_availability for select using (auth.uid() = profile_id);
-create policy "Users can insert own availability" on public.employee_availability for insert with check (auth.uid() = profile_id);
-create policy "Users can update own availability" on public.employee_availability for update using (auth.uid() = profile_id);
-create policy "Users can delete own availability" on public.employee_availability for delete using (auth.uid() = profile_id);
-create policy "Managers can view all availability" on public.employee_availability for select using (exists (select 1 from public.profiles where id = auth.uid() and role = 'manager'));
+create policy "Users can view own availability" on public.employee_availability 
+    for select using (auth.uid() = profile_id);
+create policy "Users can insert own availability" on public.employee_availability 
+    for insert with check (auth.uid() = profile_id);
+create policy "Users can update own availability" on public.employee_availability 
+    for update using (auth.uid() = profile_id);
+create policy "Users can delete own availability" on public.employee_availability 
+    for delete using (auth.uid() = profile_id);
+create policy "Managers can view all availability" on public.employee_availability 
+    for select using (
+        auth.uid() IN (
+            SELECT id FROM auth.users 
+            WHERE raw_user_meta_data->>'role' = 'manager'
+        )
+    );
 
 -- RLS policies for shift_requirements
-create policy "Anyone can view shift requirements" on public.shift_requirements for select to authenticated using (true);
-create policy "Managers can manage shift requirements" on public.shift_requirements for all using (exists (select 1 from public.profiles where id = auth.uid() and role = 'manager'));
+create policy "Anyone can view shift requirements" on public.shift_requirements 
+    for select to authenticated using (true);
+create policy "Managers can manage shift requirements" on public.shift_requirements 
+    for all using (
+        auth.uid() IN (
+            SELECT id FROM auth.users 
+            WHERE raw_user_meta_data->>'role' = 'manager'
+        )
+    );
 
 -- RLS policies for shifts
 create policy "Users can view own shifts" on public.shifts 
     for select using (
         auth.uid() = profile_id or 
-        user_email = (select email from public.profiles where id = auth.uid())
+        user_email = (select email from auth.users where id = auth.uid())
     );
 
 create policy "Users can update own shifts" on public.shifts 
     for update using (
         auth.uid() = profile_id or 
-        user_email = (select email from public.profiles where id = auth.uid())
+        user_email = (select email from auth.users where id = auth.uid())
     );
 
 create policy "Users can insert own shifts" on public.shifts 
     for insert with check (
         auth.uid() = profile_id or 
-        user_email = (select email from public.profiles where id = auth.uid())
+        user_email = (select email from auth.users where id = auth.uid())
     );
 
 create policy "Managers can view all shifts" on public.shifts 
-    for select using (exists (select 1 from public.profiles where id = auth.uid() and role = 'manager'));
+    for select using (
+        auth.uid() IN (
+            SELECT id FROM auth.users 
+            WHERE raw_user_meta_data->>'role' = 'manager'
+        )
+    );
 
 create policy "Managers can manage all shifts" on public.shifts 
-    for all using (exists (select 1 from public.profiles where id = auth.uid() and role = 'manager'));
+    for all using (
+        auth.uid() IN (
+            SELECT id FROM auth.users 
+            WHERE raw_user_meta_data->>'role' = 'manager'
+        )
+    );
 
 -- RLS policies for time_off_requests
-create policy "Users can view own time off requests" on public.time_off_requests for select using (auth.uid() = profile_id);
-create policy "Users can insert own time off requests" on public.time_off_requests for insert with check (auth.uid() = profile_id);
-create policy "Users can update own time off requests" on public.time_off_requests for update using (auth.uid() = profile_id);
-create policy "Users can delete own time off requests" on public.time_off_requests for delete using (auth.uid() = profile_id);
-create policy "Managers can view all time off requests" on public.time_off_requests for select using (exists (select 1 from public.profiles where id = auth.uid() and role = 'manager'));
-create policy "Managers can manage all time off requests" on public.time_off_requests for all using (exists (select 1 from public.profiles where id = auth.uid() and role = 'manager'));
+create policy "Users can view own time off requests" on public.time_off_requests 
+    for select using (auth.uid() = profile_id);
+create policy "Users can insert own time off requests" on public.time_off_requests 
+    for insert with check (auth.uid() = profile_id);
+create policy "Users can update own time off requests" on public.time_off_requests 
+    for update using (auth.uid() = profile_id);
+create policy "Users can delete own time off requests" on public.time_off_requests 
+    for delete using (auth.uid() = profile_id);
+create policy "Managers can view all time off requests" on public.time_off_requests 
+    for select using (
+        auth.uid() IN (
+            SELECT id FROM auth.users 
+            WHERE raw_user_meta_data->>'role' = 'manager'
+        )
+    );
+create policy "Managers can manage all time off requests" on public.time_off_requests 
+    for all using (
+        auth.uid() IN (
+            SELECT id FROM auth.users 
+            WHERE raw_user_meta_data->>'role' = 'manager'
+        )
+    );
+
+-- RLS policies for shift_assignments
+create policy "Users can view own assignments" on public.shift_assignments 
+    for select using (auth.uid() = profile_id);
+
+create policy "Users can update own assignments" on public.shift_assignments 
+    for update using (auth.uid() = profile_id);
+
+create policy "Managers can insert assignments" on public.shift_assignments 
+    for insert with check (
+        auth.uid() IN (
+            SELECT id FROM auth.users 
+            WHERE raw_user_meta_data->>'role' = 'manager'
+        )
+    );
+
+create policy "Managers can delete assignments" on public.shift_assignments 
+    for delete using (
+        auth.uid() IN (
+            SELECT id FROM auth.users 
+            WHERE raw_user_meta_data->>'role' = 'manager'
+        )
+    );
 
 -- Add indexes for better query performance
 create index shifts_profile_id_idx on public.shifts(profile_id);
@@ -255,3 +383,90 @@ FROM generate_series(0, 6) AS day_of_week;
 INSERT INTO public.shift_requirements (name, day_of_week, start_time, end_time, required_count)
 SELECT 'Graveyards (12 hours)', day_of_week, '17:00', '05:00', 1
 FROM generate_series(0, 6) AS day_of_week;
+
+-- Grant permissions for all tables
+grant all privileges on all tables in schema public to authenticated;
+grant all privileges on all tables in schema public to service_role;
+
+-- Grant usage on sequences
+grant usage on all sequences in schema public to authenticated;
+grant usage on all sequences in schema public to service_role;
+
+-- Temporarily disable RLS for initial data insertion
+alter table public.profiles disable row level security;
+alter table public.employee_availability disable row level security;
+alter table public.shifts disable row level security;
+alter table public.shift_assignments disable row level security;
+alter table public.time_off_requests disable row level security;
+
+-- Insert profiles for any auth users that don't have them
+INSERT INTO public.profiles (id, full_name, email, role, position, is_active)
+SELECT 
+    au.id,
+    COALESCE(au.raw_user_meta_data->>'full_name', split_part(au.email, '@', 1)),
+    au.email,
+    COALESCE(au.raw_user_meta_data->>'role', 'employee'),
+    COALESCE((au.raw_user_meta_data->>'position')::position_type, 'Dispatcher'),
+    true
+FROM auth.users au
+LEFT JOIN public.profiles p ON au.id = p.id
+WHERE p.id IS NULL;
+
+-- Create test data for the first profile
+DO $$ 
+DECLARE
+    test_profile_id uuid;
+BEGIN
+    -- Get the first available profile ID
+    SELECT id INTO test_profile_id FROM public.profiles LIMIT 1;
+
+    IF test_profile_id IS NOT NULL THEN
+        -- Insert test shift assignments
+        INSERT INTO public.shift_assignments (profile_id, shift_requirement_id, date, start_time, end_time)
+        SELECT 
+            test_profile_id,
+            sr.id,
+            CURRENT_DATE + i,
+            sr.start_time,
+            sr.end_time
+        FROM public.shift_requirements sr
+        CROSS JOIN generate_series(0, 6) i
+        LIMIT 5;
+
+        -- Insert test shifts
+        INSERT INTO public.shifts (profile_id, user_email, shift_requirement_id, date, start_time, end_time, status)
+        SELECT 
+            test_profile_id,
+            (SELECT email FROM public.profiles WHERE id = test_profile_id),
+            sr.id,
+            CURRENT_DATE + i,
+            sr.start_time,
+            sr.end_time,
+            'pending'
+        FROM public.shift_requirements sr
+        CROSS JOIN generate_series(0, 6) i
+        LIMIT 5;
+
+        -- Insert test availability
+        INSERT INTO public.employee_availability (profile_id, day_of_week, start_time, end_time)
+        SELECT 
+            test_profile_id,
+            day_of_week,
+            '09:00'::time,
+            '17:00'::time
+        FROM generate_series(0, 6) AS day_of_week
+        ON CONFLICT (profile_id, day_of_week) DO NOTHING;
+
+        -- Insert test time off requests
+        INSERT INTO public.time_off_requests (profile_id, start_date, end_date, reason, status)
+        VALUES 
+            (test_profile_id, CURRENT_DATE + 7, CURRENT_DATE + 8, 'Vacation', 'pending');
+    END IF;
+END $$;
+
+-- Re-enable RLS
+alter table public.profiles enable row level security;
+alter table public.employee_availability enable row level security;
+alter table public.shifts enable row level security;
+alter table public.shift_assignments enable row level security;
+alter table public.time_off_requests enable row level security;
