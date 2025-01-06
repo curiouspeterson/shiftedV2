@@ -16,6 +16,13 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+import { env } from '@/lib/env'
+
+// Base URL for redirects
+const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+
+// Mark route as dynamic
+export const dynamic = 'force-dynamic'
 
 /**
  * GET request handler
@@ -27,15 +34,15 @@ import { NextResponse } from 'next/server'
 export async function GET(request: Request) {
   try {
     // Extract authentication code from URL
-    const requestUrl = new URL(request.url)
-    const code = requestUrl.searchParams.get('code')
+    const { searchParams } = new URL(request.url)
+    const code = searchParams.get('code')
     const cookieStore = cookies()
 
     if (code) {
       // Initialize Supabase client with cookie handling
       const supabase = createServerClient(
-        'https://wgpehvclyqlyhseqdmqj.supabase.co',
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndncGVodmNseXFseWhzZXFkbXFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU5NDI5MzksImV4cCI6MjA1MTUxODkzOX0.owN6sfxK_IPPeGqqhA-bvegoM9U5d_uPKBJMe4YBsys',
+        env.NEXT_PUBLIC_SUPABASE_URL,
+        env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
         {
           cookies: {
             // Cookie getter
@@ -59,10 +66,10 @@ export async function GET(request: Request) {
     }
 
     // Redirect to dashboard on success
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+    return NextResponse.redirect(new URL('/dashboard', baseUrl))
   } catch (error) {
     // Log error and redirect to login with error parameter
     console.error('Auth callback error:', error)
-    return NextResponse.redirect(new URL('/login?error=auth_callback_failed', request.url))
+    return NextResponse.redirect(new URL('/login?error=auth_callback_failed', baseUrl))
   }
 } 

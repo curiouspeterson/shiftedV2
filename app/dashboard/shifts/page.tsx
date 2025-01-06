@@ -11,17 +11,12 @@
  * - SEO optimization
  */
 
-import { Metadata } from "next"
-import { ShiftRequirements } from "./components/shift-requirements"
+"use client"
 
-/**
- * Page metadata configuration
- * Defines title and description for SEO
- */
-export const metadata: Metadata = {
-  title: "Shift Requirements",
-  description: "Manage recurring shift requirements",
-}
+import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { createClient } from "@/lib/supabase/client"
+import { ShiftRequirements } from "./components/shift-requirements"
 
 /**
  * Shifts management page component

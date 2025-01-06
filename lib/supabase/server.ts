@@ -21,26 +21,38 @@ import { env } from '@/lib/env'
  * 
  * @returns A typed Supabase client with cookie-based session handling
  */
-export function createServerSupabaseClient() {
+export const createServerSupabaseClient = () => {
   const cookieStore = cookies()
 
-  return createServerClient<Database>(
-    env.NEXT_PUBLIC_SUPABASE_URL,
-    env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        // Get cookie value by name
         get(name: string) {
           return cookieStore.get(name)?.value
         },
-        // Set cookie with name, value, and options
         set(name: string, value: string, options: CookieOptions) {
-          cookieStore.set({ name, value, ...options })
+          try {
+            cookieStore.set({ name, value, ...options })
+          } catch (error) {
+            // Handle cookie error in development
+            console.error('Cookie set error:', error)
+          }
         },
-        // Remove cookie by name
         remove(name: string, options: CookieOptions) {
-          cookieStore.delete(name)
+          try {
+            cookieStore.delete({ name, ...options })
+          } catch (error) {
+            // Handle cookie error in development
+            console.error('Cookie remove error:', error)
+          }
         },
+      },
+      cookieOptions: {
+        path: '/',
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
       },
     }
   )
@@ -83,13 +95,6 @@ export function createAdminClient() {
           cookieStore.delete(name)
         },
       },
-      global: {
-        headers: token ? {
-          Authorization: `Bearer ${token}`
-        } : {}
-      }
     }
   )
-  
-  return supabase
 } 

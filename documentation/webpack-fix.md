@@ -1,122 +1,165 @@
-# Webpack and Dependency Fix Documentation
+# Webpack Configuration Guide
 
-## Issue Description
-The project encountered several build issues related to webpack configuration and dependency compatibility. The main issues were:
+This document outlines steps to resolve common webpack-related issues in Next.js applications.
 
-1. JSON parsing errors with ESM modules
-2. Missing WebSocket optional dependencies
-3. Environment variable type mismatches
-4. Incompatible package versions
-5. Node.js version compatibility issues
+## Prerequisites
 
-## Solution
+1. Use Node.js 18 LTS (18.16.0 or later) for optimal compatibility
+2. Use npm 9.x or later
+3. Clear npm cache and node_modules before starting:
+   ```bash
+   rm -rf .next
+   rm -rf node_modules
+   npm cache clean --force
+   ```
 
-### 1. Node.js Version
-- Use Node.js 18 LTS instead of newer versions (e.g., Node.js 23) for better compatibility
-- Command: `nvm use 18`
+## Package Dependencies
 
-### 2. Package Version Alignment
-Updated package versions to ensure compatibility:
+1. Update core dependencies:
+   ```json
+   {
+     "dependencies": {
+       "@supabase/ssr": "0.1.0",
+       "@supabase/supabase-js": "2.43.0",
+       "next": "13.4.19",
+       "react": "18.2.0",
+       "react-dom": "18.2.0"
+     }
+   }
+   ```
 
-```json
-{
-  "dependencies": {
-    "@floating-ui/dom": "1.5.3",
-    "@radix-ui/react-alert-dialog": "1.0.4",
-    "@radix-ui/react-dialog": "1.0.4",
-    "@radix-ui/react-label": "2.0.1",
-    "@radix-ui/react-popover": "1.0.6",
-    "@radix-ui/react-select": "1.2.2",
-    "@radix-ui/react-slot": "1.0.2",
-    "@radix-ui/react-toast": "1.1.4",
-    "next": "13.4.19",
-    "react": "18.2.0",
-    "react-dom": "18.2.0"
-  }
-}
-```
+2. Add required WebSocket dependencies:
+   ```json
+   {
+     "dependencies": {
+       "bufferutil": "4.0.8",
+       "utf-8-validate": "6.0.3"
+     }
+   }
+   ```
 
-### 3. WebSocket Dependencies
-Added optional WebSocket dependencies to fix warnings:
-```json
-{
-  "dependencies": {
-    "bufferutil": "^4.0.8",
-    "utf-8-validate": "^6.0.3"
-  }
-}
-```
+## Webpack Configuration
 
-### 4. Next.js Configuration
-Simplified the webpack configuration in `next.config.js`:
+Update `next.config.js`:
+
 ```javascript
+/** @type {import('next').NextConfig} */
 const nextConfig = {
-  env: {
-    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
-    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-  },
-  webpack: (config) => {
-    config.resolve.fallback = {
-      ...config.resolve.fallback,
-      fs: false,
-      module: false,
+  // Webpack 5 is enabled by default
+  webpack: (config, { isServer }) => {
+    // Fix for ESM modules
+    config.module.rules.push({
+      test: /\.(mjs|js|jsx)$/,
+      include: [
+        /node_modules\/@radix-ui/,
+        /node_modules\/date-fns/
+      ],
+      type: 'javascript/auto',
+      resolve: {
+        fullySpecified: false
+      }
+    })
+
+    // Fallbacks for Node.js modules
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        module: false,
+        path: false,
+        os: false,
+      }
     }
+
     return config
-  }
+  },
+  // Ensure proper transpilation of dependencies
+  transpilePackages: [
+    '@radix-ui/react-popper',
+    '@radix-ui/react-select',
+    'date-fns'
+  ]
 }
+
+module.exports = nextConfig
 ```
-
-### 5. Environment Variables
-Updated environment variable handling:
-- Created separate schemas for server and client environments
-- Added proper type checking for all required variables
-- Ensured environment variables are available in both server and client contexts
-
-## Steps to Fix
-
-1. Clear all caches and reinstall dependencies:
-```bash
-rm -rf .next node_modules package-lock.json
-```
-
-2. Switch to Node.js 18:
-```bash
-nvm use 18
-```
-
-3. Install dependencies:
-```bash
-npm install
-```
-
-4. Run the build:
-```bash
-npm run build
-```
-
-## Prevention Tips
-
-1. Lock dependency versions to specific versions instead of using semver ranges
-2. Use Node.js LTS versions for better stability
-3. Keep Next.js and React versions aligned
-4. Include all optional peer dependencies
-5. Maintain a simpler webpack configuration
-6. Use proper TypeScript types for environment variables
 
 ## Common Issues and Solutions
 
-1. **JSON Parsing Errors**
-   - Caused by: Webpack trying to parse ESM modules
-   - Solution: Simplify webpack configuration and ensure compatible package versions
+### 1. JSON Parsing Errors
+If encountering JSON parsing errors or "unexpected end of input":
+1. Clear all caches and reinstall dependencies
+2. Ensure Node.js version is 18.16.0 or later
+3. Use `--legacy-peer-deps` if needed: `npm install --legacy-peer-deps`
 
-2. **Missing Dependencies**
-   - Caused by: Optional peer dependencies not installed
-   - Solution: Install optional dependencies like `bufferutil` and `utf-8-validate`
+### 2. ESM Module Issues
+For ESM compatibility errors:
+1. Add problematic packages to `transpilePackages` in `next.config.js`
+2. Add ESM module resolution rule in webpack config
+3. Use `"type": "module"` in package.json only if absolutely necessary
 
-3. **Type Errors**
-   - Caused by: Mismatched types or missing type definitions
-   - Solution: Ensure proper TypeScript types and compatible package versions
+### 3. Dynamic Server Usage
+For dynamic server usage errors:
+1. Mark dynamic routes with `export const dynamic = 'force-dynamic'`
+2. Use environment variables instead of runtime values where possible
+3. Avoid `headers()`, `cookies()`, and `request.url` in static routes
 
-4. **Environment Variable Errors**
-   - Caused by: Missing or incorrectly typed environment variables
-   - Solution: Proper environment variable validation and type checking 
+### 4. WebSocket Optional Dependencies
+If using WebSocket features:
+1. Install `bufferutil` and `utf-8-validate`
+2. Add them to dependencies (not devDependencies)
+
+### 5. Tailwind CSS Issues
+For Tailwind CSS related errors:
+1. Update Tailwind and its plugins to latest versions
+2. Remove deprecated plugins from config
+3. Use proper PostCSS configuration:
+   ```javascript
+   // postcss.config.js
+   module.exports = {
+     plugins: {
+       tailwindcss: {},
+       autoprefixer: {},
+     },
+   }
+   ```
+
+## Best Practices
+
+1. Use TypeScript for better type safety
+2. Keep dependencies up to date
+3. Use `npm audit` to check for vulnerabilities
+4. Implement proper error boundaries
+5. Follow Next.js file conventions
+6. Use environment variables for configuration
+7. Implement proper metadata for SEO
+
+## Troubleshooting Steps
+
+1. Clear caches and reinstall:
+   ```bash
+   rm -rf .next
+   rm -rf node_modules
+   npm cache clean --force
+   npm install
+   ```
+
+2. Check for conflicting dependencies:
+   ```bash
+   npm ls @supabase/supabase-js
+   npm ls @supabase/ssr
+   ```
+
+3. Run with additional logging:
+   ```bash
+   NODE_OPTIONS='--trace-warnings' npm run dev
+   ```
+
+4. Verify environment variables are properly set
+5. Check for TypeScript errors: `npm run type-check`
+
+## Additional Resources
+
+- [Next.js Webpack 5 Documentation](https://nextjs.org/docs/messages/webpack5)
+- [Webpack 5 Migration Guide](https://webpack.js.org/migrate/5/)
+- [Next.js ESM Support](https://nextjs.org/docs/app/building-your-application/optimizing/module-imports) 

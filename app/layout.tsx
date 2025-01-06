@@ -14,6 +14,7 @@
 
 import { Inter } from "next/font/google"
 import { Toaster } from "@/components/ui/toaster"
+import { SupabaseProvider } from "@/components/providers/supabase-provider"
 import "./globals.css"
 
 /**
@@ -45,11 +46,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        {/* Main content area */}
-        <main>{children}</main>
-        
-        {/* Global toast notifications */}
-        <Toaster />
+        <SupabaseProvider>
+          {/* Main content area */}
+          <main>{children}</main>
+          
+          {/* Global toast notifications */}
+          <Toaster />
+        </SupabaseProvider>
       </body>
     </html>
   )

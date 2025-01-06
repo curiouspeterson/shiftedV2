@@ -59,14 +59,15 @@ export async function POST(req: Request) {
     // Fetch shift requirements ordered by day and time
     const { data: shiftRequirements, error: shiftError } = await supabase
       .from('shift_requirements')
-      .select('*')
+      .select()
       .order('day_of_week', { ascending: true })
       .order('start_time', { ascending: true })
-      .returns<DbShiftRequirement[]>()
 
     if (shiftError || !shiftRequirements) {
       throw new Error('Error fetching shift requirements')
     }
+
+    const typedShiftRequirements: DbShiftRequirement[] = shiftRequirements
 
     // Fetch active employees with their availability preferences
     const { data: employeesData, error: employeesError } = await supabase
@@ -131,7 +132,7 @@ export async function POST(req: Request) {
       const dayOfWeek = currentDate.getDay() // 0 = Sunday
 
       // Get shifts needed for current day
-      const shiftsForDay = shiftRequirements.filter(
+      const shiftsForDay = typedShiftRequirements.filter(
         (shift) => shift.day_of_week === dayOfWeek
       )
 

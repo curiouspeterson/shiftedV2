@@ -3,23 +3,22 @@
  * 
  * Main navigation component for the dashboard.
  * Provides links to different sections and user actions.
- * 
- * Features:
- * - Responsive navigation menu
- * - Active route highlighting
- * - User role-based access
- * - Logout functionality
- * - Mobile-friendly design
- * - Automatic route handling
  */
 
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
-import { useRouter } from "next/navigation"
+import { cn } from "@/lib/utils"
+import {
+  Calendar,
+  Clock,
+  Home,
+  LogOut,
+  Users,
+} from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
 
 /**
@@ -95,9 +94,10 @@ export function Sidebar({ isManager }: SidebarProps) {
             <Link
               key={item.href}
               href={item.href}
-              className={`block px-3 py-2 rounded-md hover:bg-accent ${
-                pathname === item.href ? 'bg-accent' : ''
-              }`}
+              className={cn(
+                "block px-3 py-2 rounded-md hover:bg-accent",
+                pathname === item.href && "bg-accent"
+              )}
             >
               {item.label}
             </Link>
@@ -110,6 +110,7 @@ export function Sidebar({ isManager }: SidebarProps) {
         className="w-full justify-start px-3"
         onClick={handleLogout}
       >
+        <LogOut className="w-4 h-4 mr-2" />
         Logout
       </Button>
     </div>

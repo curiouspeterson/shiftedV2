@@ -191,6 +191,8 @@ export function ShiftRequirements() {
       {/* Edit/Add dialog */}
       {isDialogOpen && (
         <ShiftRequirementDialog
+          open={isDialogOpen}
+          onOpenChange={setIsDialogOpen}
           shiftRequirement={selectedRequirement || undefined}
           onClose={() => setIsDialogOpen(false)}
           onSuccess={fetchRequirements}
