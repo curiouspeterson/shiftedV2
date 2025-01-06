@@ -4,48 +4,64 @@ This document outlines steps to resolve common webpack-related issues in Next.js
 
 ## Prerequisites
 
-1. Use Node.js 18 LTS (18.16.0 or later) for optimal compatibility
+1. Use Node.js LTS (v18 or v20 recommended) for optimal compatibility
+   - Avoid bleeding-edge releases (e.g., v23)
+   - Use nvm: `nvm install 20` and `nvm use 20`
 2. Use npm 9.x or later
 3. Clear npm cache and node_modules before starting:
    ```bash
    rm -rf .next
    rm -rf node_modules
+   rm -rf package-lock.json
    npm cache clean --force
+   npm install
    ```
 
 ## Package Dependencies
 
-1. Update core dependencies:
+1. Core dependencies should use caret (^) versioning for compatible updates:
    ```json
    {
      "dependencies": {
-       "@supabase/ssr": "0.1.0",
-       "@supabase/supabase-js": "2.43.0",
-       "next": "13.4.19",
-       "react": "18.2.0",
-       "react-dom": "18.2.0"
+       "@floating-ui/dom": "^1.5.3",
+       "@hookform/resolvers": "^3.3.4",
+       "@radix-ui/react-alert-dialog": "^1.0.5",
+       "@radix-ui/react-dialog": "^1.0.5",
+       "@radix-ui/react-label": "^2.0.2",
+       "@supabase/ssr": "^0.1.0",
+       "@supabase/supabase-js": "^2.39.3",
+       "next": "^14.0.4",
+       "react": "^18.2.0",
+       "react-dom": "^18.2.0"
      }
    }
    ```
 
-2. Add required WebSocket dependencies:
+2. Required WebSocket and UI dependencies:
    ```json
    {
      "dependencies": {
-       "bufferutil": "4.0.8",
-       "utf-8-validate": "6.0.3"
+       "bufferutil": "^4.0.8",
+       "utf-8-validate": "^6.0.3",
+       "class-variance-authority": "^0.7.0",
+       "clsx": "^2.0.0",
+       "tailwind-merge": "^1.14.0",
+       "tailwindcss-animate": "^1.0.7"
      }
    }
    ```
 
 ## Webpack Configuration
 
-Update `next.config.js`:
+Updated `next.config.js`:
 
 ```javascript
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Webpack 5 is enabled by default
+  env: {
+    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  },
   webpack: (config, { isServer }) => {
     // Fix for ESM modules
     config.module.rules.push({
@@ -73,24 +89,54 @@ const nextConfig = {
 
     return config
   },
-  // Ensure proper transpilation of dependencies
   transpilePackages: [
     '@radix-ui/react-popper',
     '@radix-ui/react-select',
     'date-fns'
-  ]
+  ],
+  experimental: {
+    serverActions: true
+  },
+  headers: async () => {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=31536000; includeSubDomains'
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'SAMEORIGIN'
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff'
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin'
+          }
+        ],
+      },
+    ]
+  },
+  pageExtensions: ['ts', 'tsx', 'js', 'jsx'],
+  images: {
+    domains: ['localhost'],
+  },
 }
-
-module.exports = nextConfig
 ```
 
 ## Common Issues and Solutions
 
 ### 1. JSON Parsing Errors
-If encountering JSON parsing errors or "unexpected end of input":
-1. Clear all caches and reinstall dependencies
-2. Ensure Node.js version is 18.16.0 or later
-3. Use `--legacy-peer-deps` if needed: `npm install --legacy-peer-deps`
+If encountering "unexpected end of JSON input":
+1. Verify Node.js version is LTS (v18 or v20)
+2. Remove `esmExternals: 'loose'` if present in next.config.js
+3. Clean install all dependencies
+4. Ensure all packages use caret (^) versioning
 
 ### 2. ESM Module Issues
 For ESM compatibility errors:
@@ -140,6 +186,7 @@ For Tailwind CSS related errors:
    ```bash
    rm -rf .next
    rm -rf node_modules
+   rm -rf package-lock.json
    npm cache clean --force
    npm install
    ```
@@ -156,7 +203,36 @@ For Tailwind CSS related errors:
    ```
 
 4. Verify environment variables are properly set
-5. Check for TypeScript errors: `npm run type-check`
+
+5. TypeScript Checks:
+   - Add the type-check script to your package.json:
+     ```json
+     {
+       "scripts": {
+         "dev": "next dev",
+         "build": "next build",
+         "start": "next start",
+         "lint": "next lint",
+         "type-check": "tsc --noEmit"
+       }
+     }
+   ```
+   - Then run:
+     ```bash
+     npm run type-check
+     ```
+
+## Available Scripts
+
+The following npm scripts are available in this project:
+
+```bash
+npm run dev      # Start development server
+npm run build    # Create production build
+npm run start    # Start production server
+npm run lint     # Run ESLint
+npm run type-check # Run TypeScript checks (after adding to package.json)
+```
 
 ## Additional Resources
 

@@ -1,17 +1,17 @@
 /**
  * Status Page Component
- * 
+ * 
  * A dashboard page that displays the development status and roadmap of the Schedule Manager application.
  * Provides a comprehensive overview of completed, in-progress, and planned features,
  * along with technical stack information and future development plans.
- * 
+ * 
  * Features:
  * - Feature status cards with completion indicators
  * - Technical stack overview
  * - Roadmap and upcoming features
  * - Responsive grid layout
  * - Visual status indicators
- * 
+ * 
  * @component
  */
 
@@ -35,7 +35,8 @@ const features = [
       { name: "Email/Password Authentication", status: "completed" },
       { name: "Protected Routes", status: "completed" },
       { name: "Role-based Access (Employee/Manager)", status: "completed" },
-      { name: "Auth State Management", status: "completed" }
+      { name: "Auth State Management", status: "completed" },
+      { name: "OAuth Callback Handling", status: "completed" }
     ]
   },
   {
@@ -136,7 +137,10 @@ const getStatusBadge = (status: string) => {
  */
 export default function StatusPage() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-8 pt-6">
+      <div className="flex items-center justify-between space-y-2">
+        <h2 className="text-3xl font-bold tracking-tight">Status</h2>
+      </div>
       <Card>
         <CardHeader>
           <CardTitle>Schedule Manager Development Status</CardTitle>
@@ -232,6 +236,7 @@ export default function StatusPage() {
                 <li>• Schedule templates and patterns</li>
                 <li>• Mobile app development</li>
                 <li>• Integration with popular calendar services</li>
+                <li>• Shift swapping</li>
               </ul>
             </div>
             <div>
@@ -249,4 +254,3 @@ export default function StatusPage() {
     </div>
   )
 }
-
