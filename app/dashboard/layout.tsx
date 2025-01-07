@@ -1,65 +1,62 @@
-/**
- * Dashboard Layout Component
- * 
- * Layout component for the dashboard section of the application.
- * Provides authentication, navigation, and shared UI elements.
- * 
- * Features:
- * - Authentication check
- * - Role-based access control
- * - Sidebar navigation
- * - Loading states
- * - Error handling
- * - Responsive layout
- * - Session management
- */
-
 import { redirect } from "next/navigation"
-import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { createServerSupabaseClient } from "@/lib/supabase/serverClient"
 import { Sidebar } from "@/components/sidebar"
+import ErrorBoundary from "@/components/ErrorBoundary"
 
-/**
- * Dashboard layout component
- * Manages authentication and provides dashboard structure
- * 
- * @property children - Child components to render within the layout
- */
+// Force dynamic rendering
+export const dynamic = 'force-dynamic'
+
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  // Initialize server-side Supabase client
   const supabase = createServerSupabaseClient()
 
-  // Get current session and user data
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) {
-    redirect("/login")
+  try {
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+
+    if (sessionError) {
+      console.error('Session error:', sessionError)
+      redirect('/login')
+    }
+
+    if (!session) {
+      redirect('/login')
+    }
+
+    // Fetch the user's role from the 'profiles' table
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', session.user.id)
+      .single()
+
+    if (profileError) {
+      console.error('Profile error:', profileError)
+      redirect('/login')
+    }
+
+    const isManager = profile?.role === 'manager'
+
+    return (
+      <div className="flex h-screen">
+        <ErrorBoundary>
+          {/* Sidebar navigation */}
+          <div className="w-64 border-r bg-muted/40 p-6">
+            <Sidebar userId={session.user.id} isManager={isManager} />
+          </div>
+
+          {/* Main content area */}
+          <div className="flex-1 overflow-auto p-8">
+            {children}
+          </div>
+        </ErrorBoundary>
+      </div>
+    )
+  } catch (error) {
+    console.error('Unexpected error:', error)
+    redirect('/login')
   }
-
-  // Get user profile and role information
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', session.user.id)
-    .single()
-
-  // Check if user is a manager
-  const isManager = profile?.role === 'manager'
-
-  return (
-    <div className="flex h-screen">
-      {/* Sidebar navigation */}
-      <div className="w-64 border-r bg-muted/40 p-6">
-        <Sidebar isManager={isManager} />
-      </div>
-
-      {/* Main content area */}
-      <div className="flex-1 overflow-auto p-8">
-        {children}
-      </div>
-    </div>
-  )
 }
 

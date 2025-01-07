@@ -183,34 +183,25 @@ alter table public.time_off_requests enable row level security;
 alter table public.shift_assignments enable row level security;
 
 -- RLS policies for profiles
-create policy "Users can view their own profile" on public.profiles
-    for select using (auth.uid() = id);
-
-create policy "Users can update their own profile" on public.profiles
-    for update using (auth.uid() = id);
-
-create policy "Managers can view all profiles" on public.profiles
+create policy "Users can view profiles" on public.profiles
     for select using (
         EXISTS (
             SELECT 1 FROM public.profiles
             WHERE id = auth.uid() AND role = 'manager'
-        )
+        ) OR auth.uid() = id
     );
+
+create policy "Users can update their own profile" on public.profiles
+    for update using (auth.uid() = id);
 
 create policy "Managers can update all profiles" on public.profiles
     for update using (
-        EXISTS (
-            SELECT 1 FROM public.profiles
-            WHERE id = auth.uid() AND role = 'manager'
-        )
+        (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'manager'
     );
 
 create policy "Managers can delete profiles" on public.profiles
     for delete using (
-        EXISTS (
-            SELECT 1 FROM public.profiles
-            WHERE id = auth.uid() AND role = 'manager'
-        )
+        (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'manager'
     );
 
 create policy "System can create profiles" on public.profiles

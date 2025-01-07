@@ -1,21 +1,25 @@
+"use client"
+
 /**
  * Status Page Component
- * 
+ * 
  * A dashboard page that displays the development status and roadmap of the Schedule Manager application.
  * Provides a comprehensive overview of completed, in-progress, and planned features,
  * along with technical stack information and future development plans.
- * 
+ * 
  * Features:
  * - Feature status cards with completion indicators
  * - Technical stack overview
  * - Roadmap and upcoming features
  * - Responsive grid layout
  * - Visual status indicators
- * 
+ * 
  * @component
  */
 
-"use client"
+// Force dynamic rendering
+export const dynamic = 'force-dynamic'
+
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"

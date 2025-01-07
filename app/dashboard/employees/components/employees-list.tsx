@@ -54,6 +54,25 @@ export function EmployeesList() {
       
       const supabase = createClient()
       console.log('Fetching employees...')
+
+      // Get the current session to verify the user
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError) throw sessionError
+
+      console.log('Current user:', {
+        id: session?.user?.id,
+        email: session?.user?.email
+      })
+
+      // Verify user's role
+      const { data: userProfile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', session?.user?.id)
+        .single()
+      
+      if (profileError) throw profileError
+      console.log('User role:', userProfile?.role)
       
       // Fetch employee profiles
       const { data, error } = await supabase

@@ -1,3 +1,5 @@
+"use client"
+
 /**
  * Time Off Requests List Component
  * 
@@ -13,8 +15,6 @@
  * - Empty state handling
  * - Automatic cleanup of subscriptions
  */
-
-"use client"
 
 import { useEffect, useState } from "react"
 import { format } from "date-fns"
@@ -46,9 +46,6 @@ type TimeOffRequest = {
   updated_at: string
 }
 
-// Initialize Supabase client
-const supabase = createClient()
-
 /**
  * Time off requests list component
  * Displays and manages real-time updates of time off requests
@@ -60,35 +57,40 @@ export function TimeOffRequestsList() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    let subscription: any
+    let isMounted = true
+    let channel: any = null
+    let client: ReturnType<typeof createClient> | null = null
 
-    /**
-     * Sets up real-time subscription and initial data fetch
-     * Handles updates, inserts, and deletions in real-time
-     */
     const setupSubscription = async () => {
       try {
+        if (!isMounted) return
         setError(null)
+        
+        client = createClient()
+        
         // Get current user
-        const { data: { user } } = await supabase.auth.getUser()
+        const { data: { user }, error: authError } = await client.auth.getUser()
+        if (authError) throw authError
         if (!user) throw new Error("No user found")
+        if (!isMounted) return
 
         // Fetch initial requests data
-        const { data, error: fetchError } = await supabase
+        const { data, error: fetchError } = await client
           .from('time_off_requests')
           .select('*')
           .eq('profile_id', user.id)
           .order('created_at', { ascending: false })
 
         if (fetchError) throw fetchError
-        setRequests(data || [])
+        if (!isMounted) return
+        setRequests(data as TimeOffRequest[] || [])
 
         // Set up real-time subscription for changes
-        console.log('Setting up subscription for user:', user.id)
-        const channelName = `time_off_requests_${user.id}_${Math.random()}`
+        console.log('Setting up time off subscription for user:', user.id)
+        const channelName = `time_off_requests_${user.id}`
         console.log('Channel name:', channelName)
-        
-        subscription = supabase
+
+        channel = client
           .channel(channelName)
           .on('postgres_changes', 
             { 
@@ -96,80 +98,50 @@ export function TimeOffRequestsList() {
               schema: 'public', 
               table: 'time_off_requests',
               filter: `profile_id=eq.${user.id}`
-            }, 
+            },
             (payload) => {
-              console.log('Received real-time update:', payload)
-              try {
-                // Handle different types of changes
-                if (payload.eventType === 'INSERT') {
-                  console.log('Handling INSERT:', payload.new)
-                  setRequests(prev => {
-                    console.log('Previous requests:', prev)
-                    const newState = [payload.new as TimeOffRequest, ...prev]
-                    console.log('New state:', newState)
-                    return newState
-                  })
-                } else if (payload.eventType === 'UPDATE') {
-                  console.log('Handling UPDATE:', payload.new)
-                  setRequests(prev => {
-                    console.log('Previous requests:', prev)
-                    const newState = prev.map(request => 
-                      request.id === payload.new.id ? payload.new as TimeOffRequest : request
-                    )
-                    console.log('New state:', newState)
-                    return newState
-                  })
-                } else if (payload.eventType === 'DELETE') {
-                  console.log('Handling DELETE:', payload.old)
-                  setRequests(prev => {
-                    console.log('Previous requests:', prev)
-                    const newState = prev.filter(request => request.id !== payload.old.id)
-                    console.log('New state:', newState)
-                    return newState
-                  })
-                }
-              } catch (error) {
-                console.error('Error handling real-time update:', error)
+              console.log('Received time off update:', payload)
+              if (!isMounted) return
+
+              if (payload.eventType === 'INSERT') {
+                setRequests(prev => [payload.new as TimeOffRequest, ...prev])
+              } else if (payload.eventType === 'UPDATE') {
+                setRequests(prev => prev.map(request => 
+                  request.id === payload.new.id ? payload.new as TimeOffRequest : request
+                ))
+              } else if (payload.eventType === 'DELETE') {
+                setRequests(prev => prev.filter(request => request.id !== payload.old.id))
               }
             }
           )
-          .subscribe((status, err) => {
-            console.log('Subscription status:', status, 'Error:', err)
-            if (status === 'SUBSCRIBED') {
-              console.log('Successfully subscribed to time off requests')
-            } else if (status === 'CHANNEL_ERROR') {
-              console.error('Failed to subscribe to time off requests:', err)
-              setError('Failed to set up real-time updates. Please refresh the page.')
-            } else if (status === 'TIMED_OUT') {
-              console.error('Subscription timed out:', err)
-              setError('Connection timed out. Please refresh the page.')
-            } else if (status === 'CLOSED') {
-              console.error('Subscription closed:', err)
-              setError('Connection closed. Please refresh the page.')
-            } else if (status === 'DISCONNECTED') {
-              console.error('Subscription disconnected:', err)
-              setError('Connection disconnected. Please refresh the page.')
-            } else if (status === 'CHANNEL_ERROR') {
-              console.error('Channel error:', err)
-              setError('Real-time connection error. Please refresh the page.')
-            }
-          })
+
+        const { error: subError } = await channel.subscribe()
+        if (subError) throw subError
+
+        console.log('Successfully subscribed to time off requests')
 
       } catch (error: any) {
-        console.error('Error setting up subscription:', error)
-        setError(error?.message || 'Failed to fetch time off requests. Please try again later.')
+        console.error('Error setting up time off subscription:', error)
+        if (isMounted) {
+          setError(error?.message || 'Failed to fetch time off requests. Please try again later.')
+        }
       } finally {
-        setLoading(false)
+        if (isMounted) {
+          setLoading(false)
+        }
       }
     }
 
-    // Initialize subscription
     setupSubscription()
 
-    // Cleanup subscription on unmount
     return () => {
-      if (subscription) {
-        supabase.removeChannel(subscription)
+      isMounted = false
+      if (channel) {
+        console.log('Cleaning up time off subscription')
+        channel.unsubscribe()
+      }
+      if (client) {
+        client.removeChannel(channel)
       }
     }
   }, [])

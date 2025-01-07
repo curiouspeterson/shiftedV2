@@ -1,8 +1,10 @@
 {
   // TypeScript Configuration
-  // 
+  // Updated: 2024-01
+  //
   // This file configures TypeScript compiler options and project settings.
-  // It defines how TypeScript should compile the project and what features
+  // It defines how TypeScript should compile the project and enforces type safety,
+  // module resolution, and other compilation features across the codebase.
   // should be enabled or disabled.
   
   "compilerOptions": {

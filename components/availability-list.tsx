@@ -1,3 +1,5 @@
+"use client"
+
 /**
  * Availability List Component
  * 
@@ -14,12 +16,10 @@
  * - Automatic cleanup of subscriptions
  */
 
-"use client"
-
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { createBrowserClient } from '@supabase/ssr'
+import { createClient } from '@/lib/supabase/client'
 import { toast } from "@/components/ui/use-toast"
 import { Loader2, AlertCircle, Trash2 } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -74,42 +74,41 @@ export function AvailabilityList({ onAvailabilityDeleted }: AvailabilityListProp
   const [error, setError] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
-  // Initialize Supabase client
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
-
   useEffect(() => {
-    let subscription: any
+    let isMounted = true
+    let channel: any = null
+    let client: ReturnType<typeof createClient> | null = null
 
-    /**
-     * Sets up real-time subscription and initial data fetch
-     * Handles updates, inserts, and deletions in real-time
-     */
     const setupSubscription = async () => {
       try {
+        if (!isMounted) return
         setError(null)
+        
+        client = createClient()
+        
         // Get current user
-        const { data: { user } } = await supabase.auth.getUser()
+        const { data: { user }, error: authError } = await client.auth.getUser()
+        if (authError) throw authError
         if (!user) throw new Error("No user found")
+        if (!isMounted) return
 
         // Fetch initial availability data
-        const { data, error } = await supabase
+        const { data, error } = await client
           .from('employee_availability')
           .select('*')
           .eq('profile_id', user.id)
           .order('day_of_week', { ascending: true })
 
         if (error) throw error
-        setSlots(data)
+        if (!isMounted) return
+        setSlots(data as AvailabilitySlot[])
 
         // Set up real-time subscription for changes
         console.log('Setting up availability subscription for user:', user.id)
-        const channelName = `availability_${user.id}_${Math.random()}`
+        const channelName = `availability_${user.id}`
         console.log('Channel name:', channelName)
-        
-        subscription = supabase
+
+        channel = client
           .channel(channelName)
           .on('postgres_changes', 
             { 
@@ -120,67 +119,43 @@ export function AvailabilityList({ onAvailabilityDeleted }: AvailabilityListProp
             }, 
             (payload) => {
               console.log('Received availability update:', payload)
-              try {
-                // Handle different types of changes
-                if (payload.eventType === 'INSERT') {
-                  console.log('Handling INSERT:', payload.new)
-                  setSlots(prev => {
-                    console.log('Previous slots:', prev)
-                    const newState = [...prev, payload.new as AvailabilitySlot]
-                    console.log('New state:', newState)
-                    return newState
-                  })
-                } else if (payload.eventType === 'DELETE') {
-                  console.log('Handling DELETE:', payload.old)
-                  setSlots(prev => {
-                    console.log('Previous slots:', prev)
-                    const newState = prev.filter(slot => slot.id !== payload.old.id)
-                    console.log('New state:', newState)
-                    return newState
-                  })
-                }
-              } catch (error) {
-                console.error('Error handling real-time update:', error)
+              if (!isMounted) return
+
+              if (payload.eventType === 'INSERT') {
+                setSlots(prev => [...prev, payload.new as AvailabilitySlot].sort((a, b) => a.day_of_week - b.day_of_week))
+              } else if (payload.eventType === 'DELETE') {
+                setSlots(prev => prev.filter(slot => slot.id !== payload.old.id))
               }
             }
           )
-          .subscribe((status, err) => {
-            console.log('Availability subscription status:', status, 'Error:', err)
-            if (status === 'SUBSCRIBED') {
-              console.log('Successfully subscribed to availability changes')
-            } else if (status === 'CHANNEL_ERROR') {
-              console.error('Failed to subscribe to availability changes:', err)
-              setError('Failed to set up real-time updates. Please refresh the page.')
-            } else if (status === 'TIMED_OUT') {
-              console.error('Subscription timed out:', err)
-              setError('Connection timed out. Please refresh the page.')
-            } else if (status === 'CLOSED') {
-              console.error('Subscription closed:', err)
-              setError('Connection closed. Please refresh the page.')
-            } else if (status === 'DISCONNECTED') {
-              console.error('Subscription disconnected:', err)
-              setError('Connection disconnected. Please refresh the page.')
-            } else if (status === 'CHANNEL_ERROR') {
-              console.error('Channel error:', err)
-              setError('Real-time connection error. Please refresh the page.')
-            }
-          })
+
+        const { error: subError } = await channel.subscribe()
+        if (subError) throw subError
+
+        console.log('Successfully subscribed to availability changes')
 
       } catch (error) {
         console.error('Error setting up subscription:', error)
-        setError('Failed to fetch availability slots. Please try again later.')
+        if (isMounted) {
+          setError('Failed to fetch availability slots. Please try again later.')
+        }
       } finally {
-        setLoading(false)
+        if (isMounted) {
+          setLoading(false)
+        }
       }
     }
 
-    // Initialize subscription
     setupSubscription()
 
-    // Cleanup subscription on unmount
     return () => {
-      if (subscription) {
-        supabase.removeChannel(subscription)
+      isMounted = false
+      if (channel) {
+        console.log('Cleaning up availability subscription')
+        channel.unsubscribe()
+      }
+      if (client) {
+        client.removeChannel(channel)
       }
     }
   }, [])
@@ -203,9 +178,10 @@ export function AvailabilityList({ onAvailabilityDeleted }: AvailabilityListProp
    * @param id - ID of the slot to delete
    */
   const handleDelete = async (id: string) => {
+    const client = createClient()
     setIsDeleting(true)
     try {
-      const { error } = await supabase
+      const { error } = await client
         .from('employee_availability')
         .delete()
         .eq('id', id)
@@ -219,6 +195,7 @@ export function AvailabilityList({ onAvailabilityDeleted }: AvailabilityListProp
 
       onAvailabilityDeleted?.()
     } catch (error) {
+      console.error('Error deleting availability slot:', error)
       toast({
         title: "Error",
         description: "Failed to delete availability slot",
