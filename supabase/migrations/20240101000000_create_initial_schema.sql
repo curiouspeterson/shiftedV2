@@ -191,22 +191,25 @@ create policy "Users can update their own profile" on public.profiles
 
 create policy "Managers can view all profiles" on public.profiles
     for select using (
-        auth.uid() IN (
-            SELECT id FROM public.profiles WHERE role = 'manager'
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE id = auth.uid() AND role = 'manager'
         )
     );
 
 create policy "Managers can update all profiles" on public.profiles
     for update using (
-        auth.uid() IN (
-            SELECT id FROM public.profiles WHERE role = 'manager'
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE id = auth.uid() AND role = 'manager'
         )
     );
 
 create policy "Managers can delete profiles" on public.profiles
     for delete using (
-        auth.uid() IN (
-            SELECT id FROM public.profiles WHERE role = 'manager'
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE id = auth.uid() AND role = 'manager'
         )
     );
 
@@ -224,9 +227,9 @@ create policy "Users can delete own availability" on public.employee_availabilit
     for delete using (auth.uid() = profile_id);
 create policy "Managers can view all availability" on public.employee_availability 
     for select using (
-        auth.uid() IN (
-            SELECT id FROM auth.users 
-            WHERE raw_user_meta_data->>'role' = 'manager'
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE id = auth.uid() AND role = 'manager'
         )
     );
 
@@ -235,44 +238,35 @@ create policy "Anyone can view shift requirements" on public.shift_requirements
     for select to authenticated using (true);
 create policy "Managers can manage shift requirements" on public.shift_requirements 
     for all using (
-        auth.uid() IN (
-            SELECT id FROM auth.users 
-            WHERE raw_user_meta_data->>'role' = 'manager'
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE id = auth.uid() AND role = 'manager'
         )
     );
 
 -- RLS policies for shifts
 create policy "Users can view own shifts" on public.shifts 
-    for select using (
-        auth.uid() = profile_id or 
-        user_email = (select email from auth.users where id = auth.uid())
-    );
+    for select using (auth.uid() = profile_id);
 
 create policy "Users can update own shifts" on public.shifts 
-    for update using (
-        auth.uid() = profile_id or 
-        user_email = (select email from auth.users where id = auth.uid())
-    );
+    for update using (auth.uid() = profile_id);
 
 create policy "Users can insert own shifts" on public.shifts 
-    for insert with check (
-        auth.uid() = profile_id or 
-        user_email = (select email from auth.users where id = auth.uid())
-    );
+    for insert with check (auth.uid() = profile_id);
 
 create policy "Managers can view all shifts" on public.shifts 
     for select using (
-        auth.uid() IN (
-            SELECT id FROM auth.users 
-            WHERE raw_user_meta_data->>'role' = 'manager'
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE id = auth.uid() AND role = 'manager'
         )
     );
 
 create policy "Managers can manage all shifts" on public.shifts 
     for all using (
-        auth.uid() IN (
-            SELECT id FROM auth.users 
-            WHERE raw_user_meta_data->>'role' = 'manager'
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE id = auth.uid() AND role = 'manager'
         )
     );
 
@@ -287,16 +281,16 @@ create policy "Users can delete own time off requests" on public.time_off_reques
     for delete using (auth.uid() = profile_id);
 create policy "Managers can view all time off requests" on public.time_off_requests 
     for select using (
-        auth.uid() IN (
-            SELECT id FROM auth.users 
-            WHERE raw_user_meta_data->>'role' = 'manager'
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE id = auth.uid() AND role = 'manager'
         )
     );
 create policy "Managers can manage all time off requests" on public.time_off_requests 
     for all using (
-        auth.uid() IN (
-            SELECT id FROM auth.users 
-            WHERE raw_user_meta_data->>'role' = 'manager'
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE id = auth.uid() AND role = 'manager'
         )
     );
 
@@ -309,17 +303,17 @@ create policy "Users can update own assignments" on public.shift_assignments
 
 create policy "Managers can insert assignments" on public.shift_assignments 
     for insert with check (
-        auth.uid() IN (
-            SELECT id FROM auth.users 
-            WHERE raw_user_meta_data->>'role' = 'manager'
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE id = auth.uid() AND role = 'manager'
         )
     );
 
 create policy "Managers can delete assignments" on public.shift_assignments 
     for delete using (
-        auth.uid() IN (
-            SELECT id FROM auth.users 
-            WHERE raw_user_meta_data->>'role' = 'manager'
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE id = auth.uid() AND role = 'manager'
         )
     );
 

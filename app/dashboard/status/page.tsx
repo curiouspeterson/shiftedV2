@@ -59,6 +59,7 @@ const features = [
       { name: "Manual Shift Assignment", status: "completed" },
       { name: "Shift Requirements", status: "completed" },
       { name: "Automated Schedule Generation", status: "in_progress" },
+      { name: "Performance Optimization", status: "in_progress" },
       { name: "Schedule Conflicts Detection", status: "planned" },
       { name: "Schedule Templates", status: "planned" }
     ]
@@ -94,6 +95,18 @@ const features = [
       { name: "Employee Hours Reports", status: "planned" },
       { name: "Cost Analysis", status: "planned" },
       { name: "Custom Report Builder", status: "planned" }
+    ]
+  },
+  {
+    name: "Security & Testing",
+    description: "Ensuring application security and reliability",
+    status: "in_progress",
+    items: [
+      { name: "Server-side Authorization", status: "in_progress" },
+      { name: "Input Validation", status: "in_progress" },
+      { name: "Unit Testing Setup", status: "planned" },
+      { name: "Integration Testing", status: "planned" },
+      { name: "E2E Testing", status: "planned" }
     ]
   }
 ]
@@ -220,6 +233,15 @@ export default function StatusPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
+            <div>
+              <h3 className="font-medium mb-2">Immediate Focus</h3>
+              <ul className="space-y-1 text-sm">
+                <li>• Performance optimization for data fetching</li>
+                <li>• Security improvements for client-side operations</li>
+                <li>• Implementation of comprehensive testing suite</li>
+                <li>• Enhanced error handling and validation</li>
+              </ul>
+            </div>
             <div>
               <h3 className="font-medium mb-2">Short Term (Next Release)</h3>
               <ul className="space-y-1 text-sm">

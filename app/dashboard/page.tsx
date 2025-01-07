@@ -49,7 +49,7 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold text-gray-900">Employee Schedule</h1>
-      <DashboardContent userEmail={session.user.email || null} />
+      <DashboardContent />
     </div>
   )
 }

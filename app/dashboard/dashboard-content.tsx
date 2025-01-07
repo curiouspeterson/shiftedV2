@@ -30,12 +30,7 @@ interface ScheduleStats {
   completedShifts: number // Number of completed shifts
 }
 
-// Props interface for the dashboard component
-export interface DashboardContentProps {
-  userEmail: string | null // Email of the logged-in user
-}
-
-export function DashboardContent({ userEmail }: DashboardContentProps) {
+export function DashboardContent() {
   // State management for statistics and loading
   const [stats, setStats] = useState<ScheduleStats>({
     totalHours: 0,
@@ -45,7 +40,7 @@ export function DashboardContent({ userEmail }: DashboardContentProps) {
   })
   const [isLoading, setIsLoading] = useState(true)
 
-  // Fetch statistics when user email changes
+  // Fetch statistics on component mount
   useEffect(() => {
     const fetchStats = async () => {
       try {
@@ -54,14 +49,10 @@ export function DashboardContent({ userEmail }: DashboardContentProps) {
           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
         )
 
-        // Get the user's profile ID first
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('email', userEmail)
-          .single()
-
-        if (profileError) throw profileError
+        // Get current user
+        const { data: { user }, error: userError } = await supabase.auth.getUser()
+        if (userError) throw userError
+        if (!user) throw new Error('No user found')
 
         // Get all shifts for the logged-in user with requirement details
         const { data: shifts, error } = await supabase
@@ -72,7 +63,7 @@ export function DashboardContent({ userEmail }: DashboardContentProps) {
               name
             )
           `)
-          .eq('profile_id', profileData.id)
+          .eq('profile_id', user.id)
 
         if (error) throw error
 
@@ -125,20 +116,11 @@ export function DashboardContent({ userEmail }: DashboardContentProps) {
       }
     }
 
-    if (userEmail) {
-      fetchStats()
-    }
-  }, [userEmail])
+    fetchStats()
+  }, [])
 
   return (
     <div className="space-y-6">
-      {/* User email display */}
-      {userEmail && (
-        <p className="text-sm text-muted-foreground">
-          Logged in as: {userEmail}
-        </p>
-      )}
-      
       <div className="grid gap-6 md:grid-cols-2">
         {/* Left column - Schedule and Time Off */}
         <div className="space-y-6">

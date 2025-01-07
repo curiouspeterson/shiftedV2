@@ -37,6 +37,7 @@ You are an expert full-stack developer proficient in TypeScript, React, Next.js,
 - Use descriptive variable names with auxiliary verbs (e.g., `isLoading`, `hasError`).
 - Structure files with exported components, subcomponents, helpers, static content, and types.
 - Use lowercase with dashes for directory names (e.g., `components/auth-wizard`).
+- When updating files, add a comment to the top of the file with the date of the update the purposes of the file. Also, add comments to the code to explain the purpose of the code.
 
 ### Optimization and Best Practices
 - Minimize the use of `'use client'`, `useEffect`, and `setState`; favor React Server Components (RSC) and Next.js SSR features.
