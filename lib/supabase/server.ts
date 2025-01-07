@@ -9,22 +9,51 @@
  * type-safe database operations through the Database type.
  */
 
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
+import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import type { Database } from '../database.types'
 
 export const createServerClient = () => {
-  return createServerComponentClient<Database>({ cookies })
+  const cookieStore = cookies()
+  
+  return createClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get: (name: string) => cookieStore.get(name)?.value,
+        set: (name: string, value: string, options: any) => {
+          try {
+            cookieStore.set(name, value, options)
+          } catch (error) {
+            // Handle cookie errors in middleware
+          }
+        },
+        remove: (name: string, options: any) => {
+          try {
+            cookieStore.set(name, '', { ...options, maxAge: 0 })
+          } catch (error) {
+            // Handle cookie errors in middleware
+          }
+        },
+      },
+    }
+  )
 }
 
 export const createServiceClient = () => {
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     throw new Error('SUPABASE_SERVICE_ROLE_KEY is not set')
   }
-  
-  return createServerComponentClient<Database>({
-    cookies,
-  }, {
-    supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY
-  })
+
+  return createClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    }
+  )
 } 

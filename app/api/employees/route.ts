@@ -13,38 +13,34 @@
  * - Response formatting
  */
 
-import { createServerClient, createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
+
+// Validation schema for employee creation
+const createEmployeeSchema = z.object({
+  data: z.object({
+    email: z.string().email(),
+    name: z.string().min(1),
+    role: z.enum(['employee', 'manager']),
+    weekly_hour_limit: z.number().min(0).max(168)
+  })
+})
 
 export async function POST(req: Request) {
   try {
-    // Get the current user's session to verify they are a manager
-    const supabase = createServerClient()
-    const { data: { session } } = await supabase.auth.getSession()
-    
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    // Verify the user is a manager
-    const { data: currentUser } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', session.user.id)
-      .single()
-
-    if (!currentUser || currentUser.role !== 'manager') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
-
-    // Get the new employee data from the request
+    // Parse and validate request body
     const body = await req.json()
-    const { email, name: full_name, role, weekly_hour_limit } = body.data
+    const validatedData = createEmployeeSchema.parse(body)
+    const { email, name: full_name, role, weekly_hour_limit } = validatedData.data
 
-    // Create the user with admin API using service role client
-    const serviceClient = createServiceClient()
-    const { data: newUser, error: createError } = await serviceClient.auth.admin.createUser({
+    // Initialize service client
+    const supabase = createServiceClient()
+
+    // Create user with admin API
+    const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
       email,
+      password: Math.random().toString(36).slice(-12),
       email_confirm: true,
       user_metadata: {
         full_name,
@@ -57,31 +53,59 @@ export async function POST(req: Request) {
       console.error('Error creating user:', createError)
       return NextResponse.json(
         { error: createError.message },
+        { status: createError.status || 500 }
+      )
+    }
+
+    if (!newUser?.user) {
+      console.error('No user returned from createUser')
+      return NextResponse.json(
+        { error: 'Failed to create user' },
         { status: 500 }
       )
     }
 
-    // Wait a short time for the trigger to create the profile
-    await new Promise(resolve => setTimeout(resolve, 1000))
-
-    // Verify the profile was created
-    const { data: profile, error: profileError } = await serviceClient
+    // Insert the profile
+    const { error: profileError } = await supabase
       .from('profiles')
-      .select('*')
-      .eq('id', newUser.user.id)
-      .single()
+      .insert({
+        id: newUser.user.id,
+        full_name,
+        email,
+        role,
+        weekly_hour_limit,
+        is_active: true
+      })
 
     if (profileError) {
-      console.error('Error fetching profile:', profileError)
+      console.error('Error creating profile:', profileError)
+      // Clean up the auth user since profile creation failed
+      await supabase.auth.admin.deleteUser(newUser.user.id)
       return NextResponse.json(
-        { error: 'Profile creation failed' },
+        { error: 'Failed to create profile' },
         { status: 500 }
       )
     }
 
-    return NextResponse.json({ success: true, user: profile })
+    return NextResponse.json({ 
+      success: true, 
+      user: {
+        id: newUser.user.id,
+        full_name,
+        email,
+        role,
+        weekly_hour_limit,
+        is_active: true
+      }
+    })
   } catch (error) {
     console.error('Error in employee creation:', error)
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: 'Invalid request data', details: error.errors },
+        { status: 400 }
+      )
+    }
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'An unexpected error occurred' },
       { status: 500 }
