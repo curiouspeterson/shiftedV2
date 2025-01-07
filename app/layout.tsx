@@ -13,8 +13,9 @@
  */
 
 import { Inter } from "next/font/google"
+import { ThemeProvider } from "@/components/providers/theme-provider"
 import { Toaster } from "@/components/ui/toaster"
-import { SupabaseProvider } from "@/components/providers/supabase-provider"
+import SupabaseProvider from "@/components/providers/supabase-provider"
 import "./globals.css"
 
 /**
@@ -28,8 +29,8 @@ const inter = Inter({ subsets: ["latin"] })
  * Defines basic page information
  */
 export const metadata = {
-  title: "Employee Schedule Manager",
-  description: "Manage employee schedules, shifts, and availability",
+  title: "Shifted",
+  description: "Employee scheduling made simple",
 }
 
 /**
@@ -44,15 +45,20 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <SupabaseProvider>
-          {/* Main content area */}
-          <main>{children}</main>
-          
-          {/* Global toast notifications */}
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <SupabaseProvider>
+            {/* Main content area */}
+            <main>{children}</main>
+          </SupabaseProvider>
           <Toaster />
-        </SupabaseProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

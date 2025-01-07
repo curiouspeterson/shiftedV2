@@ -15,7 +15,8 @@
 "use client"
 
 import * as React from "react"
-import { createClient } from "@/lib/supabase/client"
+import { useSupabase } from '@/components/providers/supabase-provider'
+import type { Database } from '../../../../lib/database.types'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -61,6 +62,19 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
   const [email, setEmail] = React.useState(employee?.email || "")
   const [fullName, setFullName] = React.useState(employee?.full_name || "")
   const [role, setRole] = React.useState<"employee" | "manager">(employee?.role || "employee")
+  const [weeklyHourLimit, setWeeklyHourLimit] = React.useState<number>(employee?.weekly_hour_limit || 40)
+
+  const { supabase } = useSupabase()
+
+  // Reset form fields when the dialog is opened
+  React.useEffect(() => {
+    if (open) {
+      setEmail(employee?.email || "")
+      setFullName(employee?.full_name || "")
+      setRole((employee?.role as "employee" | "manager") || "employee")
+      setWeeklyHourLimit(employee?.weekly_hour_limit || 40)
+    }
+  }, [open, employee])
 
   /**
    * Form submission handler
@@ -71,18 +85,18 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
     event.preventDefault()
     try {
       setIsLoading(true)
-      const supabase = createClient()
 
       if (employee) {
         // Update existing employee
         const { error: updateError } = await supabase
-          .from('profiles')
+          .from("profiles")
           .update({
             full_name: fullName,
             email: email,
             role: role,
+            weekly_hour_limit: weeklyHourLimit,
           })
-          .eq('id', employee.id)
+          .eq("id", employee.id)
 
         if (updateError) throw updateError
 
@@ -91,51 +105,46 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
           description: "Employee updated successfully",
         })
       } else {
-        // Create new employee
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email,
-          password: 'tempPassword123!', // TODO: Implement secure password generation
-          options: {
-            data: {
-              full_name: fullName,
-              role: role,
-            },
+        // Create new employee using API route
+        const response = await fetch('/api/employees', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
           },
+          body: JSON.stringify({
+            action: 'create',
+            data: {
+              email,
+              name: fullName,
+              role,
+              weekly_hour_limit: weeklyHourLimit,
+            },
+          }),
         })
 
-        if (authError) throw authError
-        if (!authData.user) throw new Error('No user returned from auth signup')
-
-        // Allow time for database trigger to create profile
-        await new Promise(resolve => setTimeout(resolve, 1000))
-
-        // Verify profile creation was successful
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', authData.user.id)
-          .single()
-
-        if (profileError || !profile) {
-          // Cleanup: Remove auth user if profile creation failed
-          await supabase.auth.admin.deleteUser(authData.user.id)
-          throw new Error('Failed to create user profile')
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.message || 'Failed to create employee')
         }
 
         toast({
           title: "Success",
-          description: "Employee created successfully. They will receive an email to set their password.",
+          description:
+            "Employee created successfully. They will receive an email to set their password.",
         })
       }
-      
+
       onSuccess()
       onOpenChange(false)
     } catch (err) {
-      console.error('Error managing employee:', err)
+      console.error("Error managing employee:", err)
       toast({
         variant: "destructive",
         title: "Error",
-        description: err instanceof Error ? err.message : "Failed to manage employee",
+        description:
+          err instanceof Error
+            ? err.message
+            : "Failed to manage employee",
       })
     } finally {
       setIsLoading(false)
@@ -146,9 +155,11 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{employee ? 'Edit' : 'Add'} Employee</DialogTitle>
+          <DialogTitle>{employee ? "Edit" : "Add"} Employee</DialogTitle>
           <DialogDescription>
-            {employee ? 'Update employee details' : 'Add a new employee to the system. They will receive an email to set their password.'}
+            {employee
+              ? "Update employee details"
+              : "Add a new employee to the system. They will receive an email to set their password."}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
@@ -178,7 +189,12 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
             {/* Role selection dropdown */}
             <div className="space-y-2">
               <Label htmlFor="role">Role</Label>
-              <Select value={role} onValueChange={(value: "employee" | "manager") => setRole(value)}>
+              <Select
+                value={role}
+                onValueChange={(value: "employee" | "manager") =>
+                  setRole(value)
+                }
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select a role" />
                 </SelectTrigger>
@@ -188,14 +204,38 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
                 </SelectContent>
               </Select>
             </div>
+            {/* Weekly Hour Limit input field */}
+            <div className="space-y-2">
+              <Label htmlFor="weeklyHourLimit">Weekly Hour Limit</Label>
+              <Input
+                id="weeklyHourLimit"
+                type="number"
+                min={0}
+                max={168}
+                value={weeklyHourLimit}
+                onChange={(e) => setWeeklyHourLimit(Number(e.target.value))}
+                required
+              />
+            </div>
           </div>
           {/* Dialog action buttons */}
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={isLoading}>
-              {isLoading ? (employee ? 'Updating...' : 'Creating...') : (employee ? 'Update' : 'Create')} Employee
+              {isLoading
+                ? employee
+                  ? "Updating..."
+                  : "Creating..."
+                : employee
+                ? "Update"
+                : "Create"}
+              Employee
             </Button>
           </DialogFooter>
         </form>
