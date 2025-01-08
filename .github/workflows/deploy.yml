@@ -17,12 +17,13 @@ jobs:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Setup Node.js
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v3
         with:
           node-version: '18'
+          cache: 'npm'
           
       - name: Debug Environment
         run: |
@@ -37,20 +38,22 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          npm install
+          npm ci
           npm list --depth=0
 
       - name: Install Supabase CLI
         run: |
-          curl -s https://raw.githubusercontent.com/supabase/cli/main/install.sh | bash
-          supabase --version
+          npm install -g supabase
+          which supabase || echo "Supabase not found in PATH"
+          echo "Supabase PATH: $PATH"
+          supabase --version || echo "Failed to get Supabase version"
 
       - name: Run Migrations
         run: |
           echo "Linking Supabase project..."
-          supabase link --project-ref wgpehvclyqlyhseqdmqj --access-token ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          npx supabase link --project-ref wgpehvclyqlyhseqdmqj --access-token ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           echo "Pushing database changes..."
-          supabase db push
+          npx supabase db push
 
       - name: Build
         run: |
