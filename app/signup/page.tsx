@@ -52,7 +52,7 @@ export default function SignUpPage() {
 
     try {
       // Attempt user registration
-      const data = await signUp(email, password)
+      const data = await signUp(email, password, fullName)
       if (!data.user) {
         setError('Failed to create account')
       } else {

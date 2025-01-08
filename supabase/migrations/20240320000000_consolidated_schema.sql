@@ -95,7 +95,15 @@ returns trigger
 language plpgsql
 security definer set search_path = public
 as $$
+declare
+    current_rls_state boolean;
 begin
+    -- Store current RLS state
+    select obj_description('public.profiles'::regclass, 'pg_class') ~ 'RLS ON' into current_rls_state;
+    
+    -- Temporarily disable RLS
+    alter table public.profiles disable row level security;
+    
     insert into public.profiles (
         id,
         full_name,
@@ -116,6 +124,12 @@ begin
         true,
         now()
     );
+    
+    -- Restore RLS state
+    if current_rls_state then
+        alter table public.profiles enable row level security;
+    end if;
+    
     return new;
 end;
 $$;
@@ -219,6 +233,11 @@ alter table public.time_off_requests enable row level security;
 alter table public.shift_assignments enable row level security;
 
 -- RLS policies for profiles
+create policy "System can create profiles" on public.profiles
+    for insert
+    to authenticated
+    with check (true);
+
 create policy "Users can view own profile" on public.profiles
     for select
     to authenticated
@@ -253,11 +272,6 @@ create policy "Managers can delete profiles" on public.profiles
     using (
         auth.jwt()->>'role' = 'manager'
     );
-
-create policy "System can create profiles" on public.profiles
-    for insert
-    to authenticated
-    with check (true);
 
 -- RLS policies for employee_availability
 create policy "Users can view own availability" on public.employee_availability 
