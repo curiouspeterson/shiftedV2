@@ -72,7 +72,7 @@ jobs:
           echo "Found migration files:"
           ls -la supabase/migrations
 
-      - name: Run Migrations
+      - name: Link and Reset Database
         run: |
           echo "Linking Supabase project..."
           echo "${{ secrets.SUPABASE_DB_PASSWORD }}" | supabase link --project-ref wgpehvclyqlyhseqdmqj || {
@@ -80,18 +80,12 @@ jobs:
             exit 1
           }
           
-          echo "Pulling remote migrations..."
-          supabase db pull || {
-            echo "Failed to pull remote migrations"
+          echo "Resetting database with consolidated schema..."
+          yes | supabase db reset --linked || {
+            echo "Failed to reset database"
             exit 1
           }
-          
-          echo "Pushing database changes..."
-          supabase db push || {
-            echo "Failed to push database changes"
-            exit 1
-          }
-        timeout-minutes: 5  # Add timeout for migrations
+        timeout-minutes: 5
 
       - name: Build
         run: |
@@ -99,6 +93,6 @@ jobs:
           npm run build
         env:
           CI: true
-        timeout-minutes: 5  # Add timeout for build
+        timeout-minutes: 5
 
       # Vercel deployment will be handled by the Vercel GitHub integration 
