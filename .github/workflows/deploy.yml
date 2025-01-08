@@ -23,19 +23,40 @@ jobs:
         uses: actions/setup-node@v2
         with:
           node-version: '18'
+          
+      - name: Debug Environment
+        run: |
+          echo "Node version: $(node -v)"
+          echo "NPM version: $(npm -v)"
+          echo "Checking for required secrets..."
+          if [ -z "$NEXT_PUBLIC_SUPABASE_URL" ]; then echo "Missing NEXT_PUBLIC_SUPABASE_URL"; fi
+          if [ -z "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ]; then echo "Missing NEXT_PUBLIC_SUPABASE_ANON_KEY"; fi
+          if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then echo "Missing SUPABASE_SERVICE_ROLE_KEY"; fi
+          if [ -z "$JWT_SECRET" ]; then echo "Missing JWT_SECRET"; fi
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then echo "Missing SUPABASE_ACCESS_TOKEN"; fi
 
       - name: Install Dependencies
-        run: npm install
+        run: |
+          npm install
+          npm list --depth=0
 
       - name: Install Supabase CLI
-        run: npm install -g supabase
+        run: |
+          curl -s https://raw.githubusercontent.com/supabase/cli/main/install.sh | bash
+          supabase --version
 
       - name: Run Migrations
         run: |
+          echo "Linking Supabase project..."
           supabase link --project-ref wgpehvclyqlyhseqdmqj --access-token ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          echo "Pushing database changes..."
           supabase db push
 
       - name: Build
-        run: npm run build
+        run: |
+          echo "Starting build process..."
+          npm run build
+        env:
+          CI: true
 
       # Vercel deployment will be handled by the Vercel GitHub integration 
