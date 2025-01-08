@@ -1,44 +1,68 @@
 /**
  * Email Verification Page
  * 
- * Server-side component that handles email verification process.
- * This page is accessed after a user clicks the verification link in their email.
- * 
- * Flow:
- * 1. User receives verification email with a link to this page
- * 2. Page checks for valid session
- * 3. If verified, redirects to dashboard
- * 4. If error, displays error message
- * 
- * Note: This must remain a server component to securely handle verification
+ * This page handles email verification after a user signs up or requests a password reset.
+ * It processes the verification token from the URL and redirects the user accordingly.
  */
 
-import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
+import { redirect, notFound } from 'next/navigation'
+import { createServerClient } from '@/lib/supabase/server'
+import { EmailOtpType } from '@supabase/supabase-js'
+import { Metadata } from 'next'
+import { headers } from 'next/headers'
 
-/**
- * Verification page component
- * Processes email verification and manages session state
- * 
- * @param searchParams - URL parameters containing verification token
- * @returns Component showing verification status or redirects on success
- */
-export default async function VerifyPage({ searchParams }: { searchParams: URLSearchParams }) {
-  const supabase = createServerSupabaseClient()
-  
-  // Check for valid session
-  const { data: { session }, error } = await supabase.auth.getSession()
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: 'Verify Email',
+    description: 'Verify your email address to complete the signup process.',
+  }
+}
 
-  // Handle verification errors
+export async function generateStaticParams() {
+  return []
+}
+
+type SearchParams = {
+  token_hash?: string
+  type?: string
+  next?: string
+  error?: string
+  error_code?: string
+  error_description?: string
+}
+
+export default async function VerifyPage({
+  searchParams,
+}: {
+  searchParams: SearchParams
+}) {
+  const headersList = headers()
+
+  const {
+    token_hash,
+    type,
+    next = '/dashboard',
+    error_description,
+  } = searchParams
+
+  if (error_description) {
+    throw new Error(error_description)
+  }
+
+  if (!token_hash || !type) {
+    notFound()
+  }
+
+  const supabase = await createServerClient()
+
+  const { error } = await supabase.auth.verifyOtp({
+    type: type as EmailOtpType,
+    token_hash,
+  })
+
   if (error) {
-    return <div>Error verifying session: {error.message}</div>
+    throw new Error(error.message)
   }
 
-  // Redirect to dashboard if session is valid
-  if (session) {
-    redirect('/dashboard')
-  }
-
-  // Show loading state while verifying
-  return <div>Verifying session...</div>
+  return redirect(next)
 } 

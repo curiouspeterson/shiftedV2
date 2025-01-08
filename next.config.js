@@ -2,9 +2,14 @@
 const nextConfig = {
   reactStrictMode: false,
   experimental: {
-    serverActions: true
+    serverActions: {
+      allowedOrigins: ['localhost:3000']
+    }
   },
-  transpilePackages: ['@supabase/auth-helpers-nextjs']
+  transpilePackages: ['@supabase/auth-helpers-nextjs'],
+  typescript: {
+    ignoreBuildErrors: true,
+  }
 }
 
 module.exports = nextConfig

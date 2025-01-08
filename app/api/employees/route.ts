@@ -1,113 +1,107 @@
 /**
- * Employees API Route
+ * Employee Management API Routes
  * 
- * Handles API requests for employee management operations.
- * Provides endpoints for creating, updating, and deleting employees.
- * 
- * Features:
- * - Request validation
- * - Action-based routing
- * - Error handling
- * - Type safety
- * - Server-side processing
- * - Response formatting
+ * This module provides API endpoints for managing employees in the system.
+ * It handles operations like creating, updating, and retrieving employee data.
  */
 
-import { createServiceClient } from '@/lib/supabase/server'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import { createAdminClient } from '@/lib/supabase/server'
+import { Database } from '@/lib/database.types'
+import { getErrorMessage } from '@/lib/utils'
 
+// Schema for validating employee data
 const employeeSchema = z.object({
-  data: z.object({
-    email: z.string().email(),
-    name: z.string(),
-    role: z.string(),
-    position: z.string(),
-    weekly_hour_limit: z.number(),
-  }),
-});
+  email: z.string().email(),
+  fullName: z.string(),
+  role: z.enum(['manager', 'employee']),
+  position: z.string(),
+  weeklyHourLimit: z.number().min(0).max(168),
+})
 
-export async function POST(request: Request) {
+// Type for employee data from schema
+type EmployeeData = z.infer<typeof employeeSchema>
+
+/**
+ * POST /api/employees
+ * Creates a new employee in the system
+ */
+export async function POST(request: NextRequest) {
   try {
-    const supabase = createServiceClient();
-    console.log("Service client created successfully");
+    // Parse and validate request body
+    const body = await request.json()
+    const data = employeeSchema.parse(body)
 
-    const json = await request.json();
-    const { data } = employeeSchema.parse(json);
-    console.log("Request data validated:", data);
+    // Create Supabase admin client
+    const supabase = createAdminClient()
 
-    // First check if user already exists
-    const { data: existingUser, error: userCheckError } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("email", data.email)
-      .single();
-
-    if (userCheckError) {
-      console.error("Error checking for existing user:", userCheckError);
-    }
-
-    if (existingUser) {
-      console.log("User already exists:", existingUser);
-      return NextResponse.json(
-        { error: "User already exists" },
-        { status: 400 }
-      );
-    }
-
-    // Create user with admin API
-    const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
+    // Create user in Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email: data.email,
-      password: "tempPassword123!", // Temporary password
+      password: Math.random().toString(36).slice(-8),
       email_confirm: true,
-    });
+      user_metadata: {
+        full_name: data.fullName,
+      },
+    })
 
-    if (createError) {
-      console.error("Error creating user:", createError);
-      console.error("Error details:", JSON.stringify(createError, null, 2));
-      return NextResponse.json(
-        { error: "Failed to create user", details: createError.message, code: 500 },
-        { status: 500 }
-      );
+    if (authError) {
+      console.error('Error creating user:', authError)
+      return NextResponse.json({ error: authError.message }, { status: 400 })
     }
 
-    if (!newUser || !newUser.user) {
-      console.error("No user data returned from createUser");
-      return NextResponse.json(
-        { error: "Failed to create user", details: "No user data returned", code: 500 },
-        { status: 500 }
-      );
-    }
-
-    console.log("User created successfully:", newUser.user.id);
-
-    // Update profile with additional data
+    // Create profile in database
     const { error: profileError } = await supabase
-      .from("profiles")
-      .update({
-        name: data.name,
+      .from('profiles')
+      .insert({
+        id: authData.user.id,
+        email: data.email,
+        full_name: data.fullName,
         role: data.role,
         position: data.position,
-        weekly_hour_limit: data.weekly_hour_limit,
+        weekly_hour_limit: data.weeklyHourLimit,
       })
-      .eq("id", newUser.user.id);
 
     if (profileError) {
-      console.error("Error updating profile:", profileError);
-      // Clean up the user if profile update fails
-      await supabase.auth.admin.deleteUser(newUser.user.id);
-      return NextResponse.json(
-        { error: "Failed to update profile", details: profileError.message },
-        { status: 500 }
-      );
+      console.error('Error creating profile:', profileError)
+      return NextResponse.json({ error: profileError.message }, { status: 400 })
     }
 
-    return NextResponse.json({ success: true, userId: newUser.user.id });
+    return NextResponse.json({ message: 'Employee created successfully' })
   } catch (error) {
-    console.error("Unexpected error:", error);
+    console.error('Error in POST /api/employees:', error)
     return NextResponse.json(
-      { error: "Internal server error", details: error instanceof Error ? error.message : "Unknown error" },
-      { status: 500 }
-    );
+      { error: getErrorMessage(error) },
+      { status: 400 }
+    )
+  }
+}
+
+/**
+ * GET /api/employees
+ * Retrieves all employees from the system
+ */
+export async function GET() {
+  try {
+    const supabase = createAdminClient()
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('Error fetching employees:', error)
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
+
+    return NextResponse.json(data)
+  } catch (error) {
+    console.error('Error in GET /api/employees:', error)
+    return NextResponse.json(
+      { error: getErrorMessage(error) },
+      { status: 400 }
+    )
   }
 } 

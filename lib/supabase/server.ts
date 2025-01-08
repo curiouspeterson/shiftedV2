@@ -6,10 +6,12 @@
  */
 
 import { createClient } from '@supabase/supabase-js'
+import { createServerClient as createSSRClient, type CookieOptions } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 import { Database } from '../database.types'
 
 // Regular client for authenticated operations
-export const createServerClient = () => {
+export const createServerClient = async () => {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
     throw new Error('NEXT_PUBLIC_SUPABASE_URL is not set')
   }
@@ -17,21 +19,35 @@ export const createServerClient = () => {
     throw new Error('NEXT_PUBLIC_SUPABASE_ANON_KEY is not set')
   }
 
-  return createClient<Database>(
+  const cookieStore = await cookies()
+
+  return createSSRClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-        detectSessionInUrl: false
+      cookies: {
+        get: (name: string) => cookieStore.get(name)?.value,
+        set: (name: string, value: string, options: CookieOptions) => {
+          try {
+            cookieStore.set({ name, value, ...options })
+          } catch (error) {
+            // Handle cookie error in development
+          }
+        },
+        remove: (name: string, options: CookieOptions) => {
+          try {
+            cookieStore.delete({ name, ...options })
+          } catch (error) {
+            // Handle cookie error in development
+          }
+        }
       }
     }
   )
 }
 
 // Admin client with service role for privileged operations
-export const createServiceClient = () => {
+export const createAdminClient = () => {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
     throw new Error('NEXT_PUBLIC_SUPABASE_URL is not set')
   }
@@ -41,14 +57,6 @@ export const createServiceClient = () => {
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-  // Log key format (without exposing the actual key)
-  console.log('Service role key format check:', {
-    length: supabaseKey.length,
-    startsWithEyJ: supabaseKey.startsWith('eyJ'),
-    containsDots: supabaseKey.includes('.'),
-    isBase64: /^[A-Za-z0-9+/=]+$/.test(supabaseKey)
-  })
 
   return createClient<Database>(
     supabaseUrl,
