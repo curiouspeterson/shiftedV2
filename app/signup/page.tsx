@@ -22,45 +22,68 @@ import Link from 'next/link'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
 
-/**
- * Sign up form component
- * Manages registration state and form submission
- */
+interface SignUpFormData {
+  email: string
+  password: string
+  fullName: string
+  role: 'employee' | 'manager'
+  position: 'Dispatcher' | 'Shift Supervisor' | 'Management'
+}
+
 export default function SignUpPage() {
   const router = useRouter()
-  // State management for loading and error states
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [formData, setFormData] = useState<SignUpFormData>({
+    email: '',
+    password: '',
+    fullName: '',
+    role: 'employee',
+    position: 'Dispatcher'
+  })
 
-  /**
-   * Form submission handler
-   * Processes user registration with provided information
-   * 
-   * @param event - Form submission event
-   */
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setFormData(prev => ({ ...prev, [name]: value }))
+  }
+
+  const handleRoleChange = (value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      role: value as 'employee' | 'manager',
+      position: value === 'manager' ? 'Management' : 'Dispatcher'
+    }))
+  }
+
+  const handlePositionChange = (value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      position: value as 'Dispatcher' | 'Shift Supervisor' | 'Management'
+    }))
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setLoading(true)
     setError('')
 
-    // Extract form data
-    const formData = new FormData(event.currentTarget)
-    const email = formData.get('email') as string
-    const password = formData.get('password') as string
-    const fullName = formData.get('fullName') as string
-
     try {
-      // Attempt user registration
-      const data = await signUp(email, password, fullName)
+      const data = await signUp(
+        formData.email,
+        formData.password,
+        formData.fullName,
+        formData.role,
+        formData.position
+      )
       if (!data.user) {
         setError('Failed to create account')
       } else {
-        // Redirect to verification page on success
         router.push('/auth/verify')
       }
     } catch (e) {
-      // Handle registration errors
       setError(e instanceof Error ? e.message : 'An unexpected error occurred')
     } finally {
       setLoading(false)
@@ -76,50 +99,84 @@ export default function SignUpPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Full name input field */}
             <div className="space-y-2">
-              <label htmlFor="fullName" className="text-sm font-medium">Full Name</label>
+              <Label htmlFor="fullName">Full Name</Label>
               <Input
                 id="fullName"
                 name="fullName"
                 type="text"
+                value={formData.fullName}
+                onChange={handleChange}
                 required
                 disabled={loading}
               />
             </div>
-            {/* Email input field */}
             <div className="space-y-2">
-              <label htmlFor="email" className="text-sm font-medium">Email</label>
+              <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
                 name="email"
                 type="email"
+                value={formData.email}
+                onChange={handleChange}
                 required
                 disabled={loading}
               />
             </div>
-            {/* Password input field */}
             <div className="space-y-2">
-              <label htmlFor="password" className="text-sm font-medium">Password</label>
+              <Label htmlFor="password">Password</Label>
               <Input
                 id="password"
                 name="password"
                 type="password"
+                value={formData.password}
+                onChange={handleChange}
                 required
                 disabled={loading}
               />
             </div>
-            {/* Error message display */}
+            <div className="space-y-2">
+              <Label htmlFor="role">Role</Label>
+              <Select
+                value={formData.role}
+                onValueChange={handleRoleChange}
+                disabled={loading}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="employee">Employee</SelectItem>
+                  <SelectItem value="manager">Manager</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {formData.role === 'employee' && (
+              <div className="space-y-2">
+                <Label htmlFor="position">Position</Label>
+                <Select
+                  value={formData.position}
+                  onValueChange={handlePositionChange}
+                  disabled={loading}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select position" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Dispatcher">Dispatcher</SelectItem>
+                    <SelectItem value="Shift Supervisor">Shift Supervisor</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             {error && (
               <div className="text-sm text-red-500">
                 {error}
               </div>
             )}
-            {/* Submit button with loading state */}
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Creating account...' : 'Create Account'}
             </Button>
-            {/* Login link for existing users */}
             <div className="text-center text-sm">
               Already have an account?{' '}
               <Link href="/login" className="text-primary hover:underline">

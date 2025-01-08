@@ -5,36 +5,23 @@
  * Handles cookie management for authentication.
  */
 
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '../database.types'
 
-// Create a singleton instance with a WeakMap to allow garbage collection
-const clientInstanceMap = new WeakMap()
+let client: ReturnType<typeof createSupabaseClient<Database>> | null = null
 
-export const createClient = () => {
-  // Use window as the key for the WeakMap
-  if (typeof window === 'undefined') {
-    return createClientComponentClient<Database>()
-  }
+export function createClient() {
+  if (client) return client
 
-  if (!clientInstanceMap.has(window)) {
-    clientInstanceMap.set(window, createClientComponentClient<Database>())
-  }
-  return clientInstanceMap.get(window)
-}
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-// Clean up function to be called when needed
-export const cleanupClient = () => {
-  if (typeof window !== 'undefined' && clientInstanceMap.has(window)) {
-    const client = clientInstanceMap.get(window)
-    if (client) {
-      client.removeAllChannels()
-      clientInstanceMap.delete(window)
-    }
-  }
-}
+  client = createSupabaseClient<Database>(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+    },
+  })
 
-// Ensure cleanup on page unload
-if (typeof window !== 'undefined') {
-  window.addEventListener('unload', cleanupClient)
+  return client
 } 

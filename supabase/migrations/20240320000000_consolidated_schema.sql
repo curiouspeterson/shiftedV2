@@ -9,8 +9,9 @@ drop table if exists public.profiles cascade;
 -- Drop existing types
 drop type if exists public.position_type cascade;
 
--- Create position type enum
-create type public.position_type as enum ('Dispatcher', 'Shift Supervisor', 'Management');
+-- Create enums
+CREATE TYPE public.role_type AS ENUM ('employee', 'manager');
+CREATE TYPE public.position_type AS ENUM ('Dispatcher', 'Shift Supervisor', 'Management');
 
 -- Create profiles table
 create table if not exists public.profiles (
@@ -89,22 +90,17 @@ create table if not exists public.shift_assignments (
     constraint unique_shift_assignment unique(profile_id, shift_requirement_id, date)
 );
 
--- Create function to handle new user creation
-create or replace function public.handle_new_user()
-returns trigger
-language plpgsql
-security definer set search_path = public
-as $$
-declare
-    current_rls_state boolean;
-begin
-    -- Store current RLS state
-    select obj_description('public.profiles'::regclass, 'pg_class') ~ 'RLS ON' into current_rls_state;
-    
-    -- Temporarily disable RLS
-    alter table public.profiles disable row level security;
-    
-    insert into public.profiles (
+-- Function to insert profile with elevated privileges
+CREATE OR REPLACE FUNCTION public.insert_profile(
+    p_id uuid,
+    p_full_name text,
+    p_email text,
+    p_role text,
+    p_position text,
+    p_weekly_hour_limit integer
+) RETURNS void AS $$
+BEGIN
+    INSERT INTO public.profiles (
         id,
         full_name,
         email,
@@ -114,25 +110,37 @@ begin
         is_active,
         updated_at
     )
-    values (
-        new.id,
-        coalesce(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)),
-        new.email,
-        coalesce(new.raw_user_meta_data->>'role', 'employee')::text,
-        coalesce(new.raw_user_meta_data->>'position', 'Dispatcher')::position_type,
-        coalesce((new.raw_user_meta_data->>'weekly_hour_limit')::int, 40),
+    VALUES (
+        p_id,
+        p_full_name,
+        p_email,
+        p_role,
+        p_position::position_type,
+        p_weekly_hour_limit,
         true,
         now()
     );
-    
-    -- Restore RLS state
-    if current_rls_state then
-        alter table public.profiles enable row level security;
-    end if;
-    
-    return new;
-end;
-$$;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Update handle_new_user function to use insert_profile
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+    PERFORM public.insert_profile(
+        NEW.id,
+        NEW.raw_user_meta_data->>'full_name',
+        NEW.email,
+        COALESCE(NEW.raw_user_meta_data->>'role', 'employee'),
+        COALESCE(NEW.raw_user_meta_data->>'position', 'Dispatcher'),
+        CASE 
+            WHEN NEW.raw_user_meta_data->>'role' = 'manager' THEN NULL
+            ELSE 40
+        END
+    );
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
 -- Create function to update updated_at timestamp
 create or replace function public.update_updated_at()
@@ -232,46 +240,49 @@ alter table public.shifts enable row level security;
 alter table public.time_off_requests enable row level security;
 alter table public.shift_assignments enable row level security;
 
--- RLS policies for profiles
-create policy "System can create profiles" on public.profiles
-    for insert
-    to authenticated
-    with check (true);
+-- Drop and recreate RLS policies for profiles
+DROP POLICY IF EXISTS "System can create profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Managers can view all profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Managers can update all profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Managers can delete profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Service role can manage profiles" ON public.profiles;
 
-create policy "Users can view own profile" on public.profiles
-    for select
-    to authenticated
-    using (
-        auth.uid() = id
-    );
+-- Create more permissive policies for profile creation
+CREATE POLICY "Allow all authenticated users to create profiles" ON public.profiles
+    FOR INSERT
+    TO authenticated
+    WITH CHECK (true);
 
-create policy "Managers can view all profiles" on public.profiles
-    for select
-    to authenticated
-    using (
-        auth.jwt()->>'role' = 'manager'
-    );
+CREATE POLICY "Allow service role full access" ON public.profiles
+    FOR ALL
+    TO service_role
+    USING (true)
+    WITH CHECK (true);
 
-create policy "Users can update own profile" on public.profiles
-    for update
-    to authenticated
-    using (
-        auth.uid() = id
-    );
+CREATE POLICY "Users can view own profile" ON public.profiles
+    FOR SELECT
+    TO authenticated
+    USING (auth.uid() = id);
 
-create policy "Managers can update all profiles" on public.profiles
-    for update
-    to authenticated
-    using (
-        auth.jwt()->>'role' = 'manager'
-    );
+CREATE POLICY "Managers can view all profiles" ON public.profiles
+    FOR SELECT
+    TO authenticated
+    USING (auth.jwt()->>'role' = 'manager');
 
-create policy "Managers can delete profiles" on public.profiles
-    for delete
-    to authenticated
-    using (
-        auth.jwt()->>'role' = 'manager'
-    );
+CREATE POLICY "Users can update own profile" ON public.profiles
+    FOR UPDATE
+    TO authenticated
+    USING (auth.uid() = id);
+
+CREATE POLICY "Managers can update all profiles" ON public.profiles
+    FOR UPDATE
+    TO authenticated
+    USING (auth.jwt()->>'role' = 'manager');
+
+-- Temporarily disable RLS for testing
+ALTER TABLE public.profiles DISABLE ROW LEVEL SECURITY;
 
 -- RLS policies for employee_availability
 create policy "Users can view own availability" on public.employee_availability 
@@ -520,4 +531,34 @@ alter table public.profiles enable row level security;
 alter table public.employee_availability enable row level security;
 alter table public.shifts enable row level security;
 alter table public.shift_assignments enable row level security;
-alter table public.time_off_requests enable row level security; 
+alter table public.time_off_requests enable row level security;
+
+-- Allow trigger to insert into profiles table
+CREATE POLICY "Allow trigger to insert profiles" ON public.profiles
+    FOR INSERT
+    WITH CHECK (true);
+
+-- Allow trigger to update profiles table
+CREATE POLICY "Allow trigger to update profiles" ON public.profiles
+    FOR UPDATE
+    USING (true);
+
+-- Create trigger for handle_new_user function
+CREATE OR REPLACE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- Enable RLS
+alter table public.profiles enable row level security;
+alter table public.employee_availability enable row level security;
+alter table public.shift_assignments enable row level security;
+alter table public.shift_requirements enable row level security;
+alter table public.shifts enable row level security;
+alter table public.time_off_requests enable row level security;
+
+-- Allow service role to manage profiles
+CREATE POLICY "Service role can manage profiles" ON public.profiles
+    FOR ALL
+    TO service_role
+    USING (true)
+    WITH CHECK (true); 

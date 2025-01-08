@@ -35,10 +35,18 @@ export async function signIn(email: string, password: string) {
  * @param email - User's email address.
  * @param password - User's password.
  * @param fullName - User's full name.
+ * @param role - User's role.
+ * @param position - User's position.
  * @returns Newly created user data including confirmation status.
  * @throws Error if sign-up fails with the specific error message from Supabase.
  */
-export async function signUp(email: string, password: string, fullName: string) {
+export async function signUp(
+  email: string,
+  password: string,
+  fullName: string,
+  role: 'employee' | 'manager' = 'employee',
+  position: 'Dispatcher' | 'Shift Supervisor' | 'Management' = 'Dispatcher'
+) {
   const supabase = createClient()
   const { error, data } = await supabase.auth.signUp({
     email,
@@ -46,12 +54,14 @@ export async function signUp(email: string, password: string, fullName: string) 
     options: {
       data: {
         full_name: fullName,
-      },
-    },
+        role,
+        position
+      }
+    }
   })
 
   if (error) {
-    throw new Error(error.message)
+    throw error
   }
 
   return data
