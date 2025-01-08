@@ -44,20 +44,7 @@ jobs:
       - name: Install Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
-
-      - name: Pull Required Docker Images
-        run: |
-          docker pull supabase/postgres:14.1.0.71
-          docker pull supabase/storage-api:v0.20.1
-          docker pull supabase/postgres-meta:v0.45.0
-          docker pull supabase/gotrue:v2.15.3
-          docker pull supabase/studio:v0.1.0
-          docker pull supabase/pgadmin-schema-diff:cli-0.0.5
-          docker pull kong:2.8.1
-          docker pull inbucket/inbucket:3.0.3
-          docker pull postgrest/postgrest:v9.0.1.20220717
-          docker pull supabase/realtime:v0.22.7
+          version: 1.156.1
 
       - name: Run Migrations
         run: |
@@ -65,8 +52,6 @@ jobs:
           supabase link --project-ref wgpehvclyqlyhseqdmqj --access-token ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           echo "Pushing database changes..."
           supabase db push
-        env:
-          SUPABASE_INTERNAL_IMAGE_REGISTRY: docker.io
 
       - name: Build
         run: |
