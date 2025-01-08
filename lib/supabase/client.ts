@@ -8,20 +8,33 @@
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import type { Database } from '../database.types'
 
-// Create a singleton instance
-let clientInstance: ReturnType<typeof createClientComponentClient<Database>> | null = null
+// Create a singleton instance with a WeakMap to allow garbage collection
+const clientInstanceMap = new WeakMap()
 
 export const createClient = () => {
-  if (!clientInstance) {
-    clientInstance = createClientComponentClient<Database>()
+  // Use window as the key for the WeakMap
+  if (typeof window === 'undefined') {
+    return createClientComponentClient<Database>()
   }
-  return clientInstance
+
+  if (!clientInstanceMap.has(window)) {
+    clientInstanceMap.set(window, createClientComponentClient<Database>())
+  }
+  return clientInstanceMap.get(window)
 }
 
 // Clean up function to be called when needed
 export const cleanupClient = () => {
-  if (clientInstance) {
-    clientInstance.removeAllChannels()
-    clientInstance = null
+  if (typeof window !== 'undefined' && clientInstanceMap.has(window)) {
+    const client = clientInstanceMap.get(window)
+    if (client) {
+      client.removeAllChannels()
+      clientInstanceMap.delete(window)
+    }
   }
+}
+
+// Ensure cleanup on page unload
+if (typeof window !== 'undefined') {
+  window.addEventListener('unload', cleanupClient)
 } 

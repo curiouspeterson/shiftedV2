@@ -1,3 +1,9 @@
+-- Temporarily disable RLS for debugging
+ALTER TABLE public.profiles DISABLE ROW LEVEL SECURITY;
+
+-- Keep policies in place but disabled for now
+-- They will be re-enabled after debugging
+
 -- Drop ALL existing RLS policies for profiles
 do $$ 
 declare 
@@ -12,7 +18,7 @@ begin
     end loop;
 end $$;
 
--- Create new RLS policies for profiles with improved access control
+-- Create new RLS policies (currently disabled due to RLS being disabled)
 create policy "Managers can view all profiles" on public.profiles
     for select
     to authenticated

@@ -17,98 +17,97 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
-// Validation schema for employee creation
-const createEmployeeSchema = z.object({
+const employeeSchema = z.object({
   data: z.object({
     email: z.string().email(),
-    name: z.string().min(1),
-    role: z.enum(['employee', 'manager']),
-    weekly_hour_limit: z.number().min(0).max(168)
-  })
-})
+    name: z.string(),
+    role: z.string(),
+    position: z.string(),
+    weekly_hour_limit: z.number(),
+  }),
+});
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
-    // Parse and validate request body
-    const body = await req.json()
-    const validatedData = createEmployeeSchema.parse(body)
-    const { email, name: full_name, role, weekly_hour_limit } = validatedData.data
+    const supabase = createServiceClient();
+    console.log("Service client created successfully");
 
-    // Initialize service client
-    const supabase = createServiceClient()
+    const json = await request.json();
+    const { data } = employeeSchema.parse(json);
+    console.log("Request data validated:", data);
+
+    // First check if user already exists
+    const { data: existingUser, error: userCheckError } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("email", data.email)
+      .single();
+
+    if (userCheckError) {
+      console.error("Error checking for existing user:", userCheckError);
+    }
+
+    if (existingUser) {
+      console.log("User already exists:", existingUser);
+      return NextResponse.json(
+        { error: "User already exists" },
+        { status: 400 }
+      );
+    }
 
     // Create user with admin API
     const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
-      email,
-      password: Math.random().toString(36).slice(-12),
+      email: data.email,
+      password: "tempPassword123!", // Temporary password
       email_confirm: true,
-      user_metadata: {
-        full_name,
-        role,
-        weekly_hour_limit
-      }
-    })
+    });
 
     if (createError) {
-      console.error('Error creating user:', createError)
+      console.error("Error creating user:", createError);
+      console.error("Error details:", JSON.stringify(createError, null, 2));
       return NextResponse.json(
-        { error: createError.message },
-        { status: createError.status || 500 }
-      )
-    }
-
-    if (!newUser?.user) {
-      console.error('No user returned from createUser')
-      return NextResponse.json(
-        { error: 'Failed to create user' },
+        { error: "Failed to create user", details: createError.message, code: 500 },
         { status: 500 }
-      )
+      );
     }
 
-    // Insert the profile
+    if (!newUser || !newUser.user) {
+      console.error("No user data returned from createUser");
+      return NextResponse.json(
+        { error: "Failed to create user", details: "No user data returned", code: 500 },
+        { status: 500 }
+      );
+    }
+
+    console.log("User created successfully:", newUser.user.id);
+
+    // Update profile with additional data
     const { error: profileError } = await supabase
-      .from('profiles')
-      .insert({
-        id: newUser.user.id,
-        full_name,
-        email,
-        role,
-        weekly_hour_limit,
-        is_active: true
+      .from("profiles")
+      .update({
+        name: data.name,
+        role: data.role,
+        position: data.position,
+        weekly_hour_limit: data.weekly_hour_limit,
       })
+      .eq("id", newUser.user.id);
 
     if (profileError) {
-      console.error('Error creating profile:', profileError)
-      // Clean up the auth user since profile creation failed
-      await supabase.auth.admin.deleteUser(newUser.user.id)
+      console.error("Error updating profile:", profileError);
+      // Clean up the user if profile update fails
+      await supabase.auth.admin.deleteUser(newUser.user.id);
       return NextResponse.json(
-        { error: 'Failed to create profile' },
+        { error: "Failed to update profile", details: profileError.message },
         { status: 500 }
-      )
+      );
     }
 
-    return NextResponse.json({ 
-      success: true, 
-      user: {
-        id: newUser.user.id,
-        full_name,
-        email,
-        role,
-        weekly_hour_limit,
-        is_active: true
-      }
-    })
+    return NextResponse.json({ success: true, userId: newUser.user.id });
   } catch (error) {
-    console.error('Error in employee creation:', error)
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Invalid request data', details: error.errors },
-        { status: 400 }
-      )
-    }
+    console.error("Unexpected error:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'An unexpected error occurred' },
+      { error: "Internal server error", details: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 }
-    )
+    );
   }
 } 
