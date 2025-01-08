@@ -5,7 +5,7 @@ on:
   pull_request:
     branches: [ main ]
 
-# Testing deployment workflow with Supabase migrations - testing with SUPABASE_ACCESS_TOKEN
+# Testing deployment workflow with updated Supabase credentials and environment variables
 jobs:
   deploy:
     runs-on: ubuntu-latest
