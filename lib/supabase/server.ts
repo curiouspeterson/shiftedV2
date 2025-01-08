@@ -32,6 +32,7 @@ export const createServerClient = async () => {
             cookieStore.set({ name, value, ...options })
           } catch (error) {
             // Handle cookie error in development
+            console.error('Cookie error:', error)
           }
         },
         remove: (name: string, options: CookieOptions) => {
@@ -39,7 +40,19 @@ export const createServerClient = async () => {
             cookieStore.delete({ name, ...options })
           } catch (error) {
             // Handle cookie error in development
+            console.error('Cookie error:', error)
           }
+        }
+      },
+      auth: {
+        debug: true  // Enable auth debugging
+      },
+      db: {
+        schema: 'public'
+      },
+      global: {
+        headers: {
+          'x-client-info': 'shifted-v2@0.1.0'
         }
       }
     }
@@ -65,7 +78,8 @@ export const createAdminClient = () => {
       auth: {
         autoRefreshToken: false,
         persistSession: false,
-        detectSessionInUrl: false
+        detectSessionInUrl: false,
+        debug: true  // Enable auth debugging
       },
       global: {
         headers: {

@@ -3,13 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": "^18.0.0"
+    "node": ">=18.17.0"
   },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:db": "supabase test db",
+    "test:auth": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"commonjs\"}' mocha -r ts-node/register 'supabase/tests/**/*.test.ts'",
+    "test": "npm run test:db && npm run test:auth"
   },
   "dependencies": {
     "@floating-ui/dom": "1.5.3",
@@ -32,7 +35,7 @@
     "clsx": "2.0.0",
     "date-fns": "2.30.0",
     "lucide-react": "0.290.0",
-    "next": "^15.1.4",
+    "next": "^14.2.23",
     "next-themes": "^0.4.4",
     "react": "^18.2.0",
     "react-day-picker": "8.10.1",
@@ -45,15 +48,20 @@
     "zod": "3.24.1"
   },
   "devDependencies": {
-    "@types/node": "20.10.4",
+    "@types/chai": "^4.3.11",
+    "@types/mocha": "^10.0.6",
+    "@types/node": "20.11.0",
     "@types/react": "18.2.42",
     "@types/react-dom": "18.2.17",
     "autoprefixer": "10.4.16",
+    "chai": "^4.4.1",
     "dotenv": "16.3.1",
     "eslint": "8.56.0",
-    "eslint-config-next": "13.4.19",
+    "eslint-config-next": "14.2.23",
+    "mocha": "^10.2.0",
     "postcss": "8.4.32",
     "tailwindcss": "3.3.6",
+    "ts-node": "^10.9.2",
     "typescript": "5.3.3"
   }
 }

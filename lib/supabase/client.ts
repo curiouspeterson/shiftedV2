@@ -20,7 +20,21 @@ export function createClient() {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
+      debug: true
     },
+    db: {
+      schema: 'public'
+    },
+    global: {
+      headers: {
+        'x-client-info': 'shifted-v2@0.1.0'
+      }
+    },
+    realtime: {
+      params: {
+        log_level: 'debug'
+      }
+    }
   })
 
   return client
