@@ -72,7 +72,7 @@ jobs:
           echo "Found migration files:"
           ls -la supabase/migrations
 
-      - name: Link and Reset Database
+      - name: Link and Push Database Changes
         run: |
           echo "Linking Supabase project..."
           echo "${{ secrets.SUPABASE_DB_PASSWORD }}" | supabase link --project-ref wgpehvclyqlyhseqdmqj || {
@@ -80,10 +80,18 @@ jobs:
             exit 1
           }
           
-          echo "Resetting database with consolidated schema..."
-          yes | supabase db reset --linked || {
-            echo "Failed to reset database"
-            exit 1
+          echo "Pushing database changes..."
+          supabase db push --dry-run || {
+            echo "Dry run failed, checking for compatibility issues..."
+            # Remove PROCEDURES grants from migrations
+            find supabase/migrations -type f -name "*.sql" -exec sed -i 's/GRANT ALL ON ALL PROCEDURES.*;//g' {} \;
+            find supabase/migrations -type f -name "*.sql" -exec sed -i 's/ALTER DEFAULT PRIVILEGES.*PROCEDURES.*;//g' {} \;
+            
+            echo "Retrying database push..."
+            supabase db push || {
+              echo "Failed to push database changes"
+              exit 1
+            }
           }
         timeout-minutes: 5
 
