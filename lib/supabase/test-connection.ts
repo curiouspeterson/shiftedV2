@@ -1,6 +1,7 @@
 "use client"
 
-import { createClient } from './client'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from '@/types/supabase'
 
 /**
  * Test Connection Module
@@ -15,13 +16,13 @@ import { createClient } from './client'
 
 /**
  * Tests the Supabase connection by checking auth status and running a test query
+ * @param supabase - The Supabase client instance to use for testing
  * @returns Promise<boolean> - True if connection tests pass, false otherwise
  */
-export async function testConnection() {
+export async function testConnection(supabase: SupabaseClient<Database>) {
   try {
-    // Initialize connection test and create Supabase client
+    // Initialize connection test
     console.log('Starting connection test...')
-    const supabase = createClient()
     
     // Test authentication by retrieving current session
     // This verifies that auth is properly configured and working

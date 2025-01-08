@@ -10,6 +10,8 @@
  * - Global toast notifications
  * - Theme configuration
  * - Responsive layout
+ * 
+ * Updated: 2024-01-08 - Improved layout structure for nested layouts
  */
 
 import { Inter } from "next/font/google"
@@ -54,8 +56,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <SupabaseProvider>
-            {/* Main content area */}
-            <main>{children}</main>
+            {children}
           </SupabaseProvider>
           <Toaster />
         </ThemeProvider>

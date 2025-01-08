@@ -5,55 +5,51 @@
  * Displays the employee schedule interface and user information.
  */
 
-import { createServerClient } from '@supabase/ssr'
+import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { DashboardContent } from './dashboard-content'
-import { type Database } from '@/types/supabase'
 
 export default async function DashboardPage() {
-  const cookieStore = cookies()
+  const supabase = createServerComponentClient({ cookies })
 
-  const supabase = createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value
-        },
-        set(name: string, value: string, options: { path: string }) {
-          try {
-            cookieStore.set(name, value, options)
-          } catch (error) {
-            // Handle cookie error in development
-          }
-        },
-        remove(name: string, options: { path: string }) {
-          try {
-            cookieStore.delete(name)
-          } catch (error) {
-            // Handle cookie error in development
-          }
-        },
-      },
-    }
-  )
-  
-  const { data: { session } } = await supabase.auth.getSession()
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
 
   if (!session) {
     redirect('/login')
   }
 
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', session.user.id)
+    .single()
+
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-gray-900">Employee Schedule</h1>
-      <DashboardContent />
+    <div className="min-h-screen bg-gray-100 p-8">
+      <div className="mx-auto max-w-7xl">
+        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+        <div className="mt-6 bg-white rounded-lg shadow p-6">
+          <h2 className="text-xl font-semibold mb-4">Welcome, {profile?.full_name}</h2>
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm font-medium text-gray-500">Email</p>
+              <p className="mt-1">{profile?.email}</p>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-500">Role</p>
+              <p className="mt-1 capitalize">{profile?.role}</p>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-500">Position</p>
+              <p className="mt-1">{profile?.position}</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
-
-// Move DashboardContent to a separate file: app/dashboard/dashboard-content.tsx
 
 

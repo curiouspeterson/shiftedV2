@@ -6,6 +6,7 @@
  * 
  * Features:
  * - Authentication check
+ * - Manager role verification
  * - Database connection test
  * - Employee list display
  * - Loading states
@@ -19,8 +20,8 @@
 import { useEffect, useState } from "react"
 import { EmployeesList } from "./components/employees-list"
 import { testConnection } from "@/lib/supabase/test-connection"
-import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
+import { useSupabase } from "@/components/providers/supabase-provider"
 
 /**
  * Employees page component
@@ -28,6 +29,7 @@ import { useRouter } from "next/navigation"
  * 
  * Features:
  * - Session verification
+ * - Manager role verification
  * - Database connectivity check
  * - Error state handling
  * - Loading state display
@@ -38,10 +40,11 @@ export default function EmployeesPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
+  const { supabase } = useSupabase()
 
   /**
-   * Checks authentication and database connection
-   * Redirects to login if no session found
+   * Checks authentication and manager role
+   * Redirects to login if no session found or dashboard if not a manager
    * 
    * @returns void
    * @throws Error if connection test fails
@@ -50,7 +53,6 @@ export default function EmployeesPage() {
     async function checkAuth() {
       try {
         console.log('Checking auth...')
-        const supabase = createClient()
         
         // Verify user session
         const { data: { session } } = await supabase.auth.getSession()
@@ -66,8 +68,25 @@ export default function EmployeesPage() {
           email: session.user.email
         })
 
+        // Check if user is a manager
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', session.user.id)
+          .single()
+
+        // Case-insensitive manager role check
+        const isManager = profile?.role?.toLowerCase() === 'manager' || 
+                        profile?.role?.toLowerCase() === 'admin'
+
+        if (!isManager) {
+          console.log('User is not a manager, redirecting to dashboard')
+          router.push('/dashboard')
+          return
+        }
+
         // Test database connection
-        const connectionResult = await testConnection()
+        const connectionResult = await testConnection(supabase)
         console.log('Connection test result:', connectionResult)
         
         if (!connectionResult) {
@@ -82,7 +101,7 @@ export default function EmployeesPage() {
     }
 
     checkAuth()
-  }, [router])
+  }, [router, supabase])
 
   // Show loading state
   if (isLoading) {

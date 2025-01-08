@@ -7,6 +7,35 @@
 
 import { createClient } from '@/lib/supabase/client'
 
+export type UserRole = 'Employee' | 'Manager' | 'Admin'
+export type UserPosition = 'Dispatcher' | 'Shift Supervisor' | 'Management'
+
+type RolePositionMap = {
+  Employee: Array<Extract<UserPosition, 'Dispatcher' | 'Shift Supervisor'>>
+  Manager: Array<Extract<UserPosition, 'Management'>>
+  Admin: Array<Extract<UserPosition, 'Management'>>
+}
+
+const VALID_POSITIONS: RolePositionMap = {
+  Employee: ['Dispatcher', 'Shift Supervisor'],
+  Manager: ['Management'],
+  Admin: ['Management']
+}
+
+/**
+ * Validates if a position is valid for a given role
+ */
+function isValidPositionForRole(role: UserRole, position: UserPosition): boolean {
+  return VALID_POSITIONS[role].includes(position as any)
+}
+
+/**
+ * Gets the default position for a role
+ */
+function getDefaultPositionForRole(role: UserRole): UserPosition {
+  return role === 'Employee' ? 'Dispatcher' : 'Management'
+}
+
 /**
  * Sign in a user with email and password.
  * 
@@ -44,9 +73,14 @@ export async function signUp(
   email: string,
   password: string,
   fullName: string,
-  role: 'employee' | 'manager' = 'employee',
-  position: 'Dispatcher' | 'Shift Supervisor' | 'Management' = 'Dispatcher'
+  role: UserRole = 'Employee',
+  position?: UserPosition
 ) {
+  // If position is not provided or is invalid for the role, use the default
+  const validPosition = position && isValidPositionForRole(role, position)
+    ? position
+    : getDefaultPositionForRole(role)
+
   const supabase = createClient()
   const { error, data } = await supabase.auth.signUp({
     email,
@@ -55,7 +89,7 @@ export async function signUp(
       data: {
         full_name: fullName,
         role,
-        position
+        position: validPosition
       }
     }
   })

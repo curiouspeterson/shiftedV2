@@ -17,7 +17,7 @@
 "use client"
 
 import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { useSupabase } from '@/components/providers/supabase-provider'
 import { toast } from "@/components/ui/use-toast"
 import { Button } from "@/components/ui/button"
 import { EmployeeDialog } from './employee-dialog'
@@ -42,6 +42,7 @@ export function EmployeesList() {
   const [error, setError] = useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null)
+  const { supabase } = useSupabase()
 
   /**
    * Fetches employee data from the database
@@ -52,32 +53,42 @@ export function EmployeesList() {
       setLoading(true)
       setError(null)
       
-      const supabase = createClient()
       console.log('Fetching employees...')
 
       // Get the current session to verify the user
       const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-      if (sessionError) throw sessionError
+      
+      // If there's no session, retry a few times before giving up
+      if (!session) {
+        // Wait for a short delay and try to get the session again
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        const { data: { session: retrySession } } = await supabase.auth.getSession()
+        
+        if (!retrySession) {
+          window.location.href = '/login'
+          return
+        }
+      }
 
       console.log('Current user:', {
-        id: session?.user?.id,
-        email: session?.user?.email
+        id: session.user.id,
+        email: session.user.email
       })
 
       // Verify user's role
       const { data: userProfile, error: profileError } = await supabase
         .from('profiles')
         .select('role')
-        .eq('id', session?.user?.id)
+        .eq('id', session.user.id)
         .single()
       
       if (profileError) throw profileError
       console.log('User role:', userProfile?.role)
       
-      // Fetch employee profiles
+      // Fetch employee profiles with all required fields
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, email, role, is_active')
+        .select('id, full_name, email, role, position, weekly_hour_limit, created_at, updated_at, is_active')
         .order('full_name')
 
       if (error) {
@@ -86,7 +97,7 @@ export function EmployeesList() {
       }
 
       console.log('Fetch successful:', data)
-      setEmployees(data || [])
+      setEmployees(data as Employee[])
     } catch (err) {
       console.error('Error:', err)
       setError(err instanceof Error ? err.message : 'Failed to fetch employees')
@@ -106,7 +117,6 @@ export function EmployeesList() {
    */
   const handleDelete = async (employeeId: string) => {
     try {
-      const supabase = createClient()
       const { error } = await supabase
         .from('profiles')
         .delete()
@@ -140,8 +150,19 @@ export function EmployeesList() {
 
   // Fetch employees on component mount
   useEffect(() => {
+    const refreshSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        const { data } = await supabase.auth.refreshSession()
+        if (!data.session) {
+          window.location.href = '/login'
+        }
+      }
+    }
+    
+    refreshSession()
     fetchEmployees()
-  }, [])
+  }, [supabase])
 
   // Show loading state
   if (loading) {
