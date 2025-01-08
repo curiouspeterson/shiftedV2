@@ -1,50 +1,30 @@
 /**
- * Employee Management Dialog Component
+ * Employee Dialog Component
  * 
- * A dialog component for creating and managing employee accounts.
- * Handles user creation in Supabase Auth and profile management.
+ * Dialog component for creating and editing employee information.
+ * Provides form interface for employee data management.
  * 
  * Features:
- * - Create new employee accounts
- * - Set employee roles (employee/manager)
- * - Automatic profile creation through Supabase triggers
- * - Email notification for password setup
- * - Error handling and user feedback
+ * - Email and full name input
+ * - Role selection (employee/manager)
+ * - Position selection (Dispatcher, Shift Supervisor, Management)
+ * - Weekly hour limit setting
+ * - Form validation
+ * - Loading states
+ * - Error handling
+ * - Success notifications
  */
 
-"use client"
-
-import * as React from "react"
-import { useSupabase } from '@/components/providers/supabase-provider'
-import type { Database } from '../../../../lib/database.types'
+import { useState } from "react"
+import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/components/ui/use-toast"
 import { type Employee } from "@/types/employee"
 
-/**
- * Props for the EmployeeDialog component
- * @property open - Controls dialog visibility
- * @property onOpenChange - Callback for dialog open state changes
- * @property employee - Employee data for editing mode (null for create mode)
- * @property onSuccess - Callback function after successful operation
- */
 interface EmployeeDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -57,24 +37,16 @@ interface EmployeeDialogProps {
  * Provides interface for creating and editing employee accounts
  */
 export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: EmployeeDialogProps) {
-  // State management for form fields and loading state
-  const [isLoading, setIsLoading] = React.useState(false)
-  const [email, setEmail] = React.useState(employee?.email || "")
-  const [fullName, setFullName] = React.useState(employee?.full_name || "")
-  const [role, setRole] = React.useState<"employee" | "manager">(employee?.role || "employee")
-  const [weeklyHourLimit, setWeeklyHourLimit] = React.useState<number>(employee?.weekly_hour_limit || 40)
-
-  const { supabase } = useSupabase()
-
-  // Reset form fields when the dialog is opened
-  React.useEffect(() => {
-    if (open) {
-      setEmail(employee?.email || "")
-      setFullName(employee?.full_name || "")
-      setRole((employee?.role as "employee" | "manager") || "employee")
-      setWeeklyHourLimit(employee?.weekly_hour_limit || 40)
-    }
-  }, [open, employee])
+  const supabase = createClient()
+  // State management
+  const [isLoading, setIsLoading] = useState(false)
+  const [email, setEmail] = useState(employee?.email || "")
+  const [fullName, setFullName] = useState(employee?.full_name || "")
+  const [role, setRole] = useState<'employee' | 'manager'>(employee?.role as 'employee' | 'manager' || "employee")
+  const [position, setPosition] = useState<'Dispatcher' | 'Shift Supervisor' | 'Management'>(
+    employee?.position as 'Dispatcher' | 'Shift Supervisor' | 'Management' || "Dispatcher"
+  )
+  const [weeklyHourLimit, setWeeklyHourLimit] = useState(employee?.weekly_hour_limit || 40)
 
   /**
    * Form submission handler
@@ -94,6 +66,7 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
             full_name: fullName,
             email: email,
             role: role,
+            position: position,
             weekly_hour_limit: weeklyHourLimit,
           })
           .eq("id", employee.id)
@@ -117,6 +90,7 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
               email,
               name: fullName,
               role,
+              position,
               weekly_hour_limit: weeklyHourLimit,
             },
           }),
@@ -176,6 +150,7 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
                 disabled={!!employee} // Email can't be changed for existing employees
               />
             </div>
+
             {/* Full name input field */}
             <div className="space-y-2">
               <Label htmlFor="fullName">Full Name</Label>
@@ -186,25 +161,8 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
                 required
               />
             </div>
-            {/* Role selection dropdown */}
-            <div className="space-y-2">
-              <Label htmlFor="role">Role</Label>
-              <Select
-                value={role}
-                onValueChange={(value: "employee" | "manager") =>
-                  setRole(value)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="employee">Employee</SelectItem>
-                  <SelectItem value="manager">Manager</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {/* Weekly Hour Limit input field */}
+
+            {/* Weekly hour limit input field */}
             <div className="space-y-2">
               <Label htmlFor="weeklyHourLimit">Weekly Hour Limit</Label>
               <Input
@@ -213,31 +171,72 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSuccess }: Empl
                 min={0}
                 max={168}
                 value={weeklyHourLimit}
-                onChange={(e) => setWeeklyHourLimit(Number(e.target.value))}
+                onChange={(e) => setWeeklyHourLimit(parseInt(e.target.value))}
                 required
               />
             </div>
+
+            {/* Role selection field */}
+            <div className="space-y-2">
+              <Label htmlFor="role">Role</Label>
+              <Select
+                value={role}
+                onValueChange={(value: 'employee' | 'manager') => {
+                  setRole(value)
+                  // Update position based on role
+                  setPosition(value === 'manager' ? 'Management' : 'Dispatcher')
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="employee">Employee</SelectItem>
+                  <SelectItem value="manager">Manager</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Position selection field */}
+            <div className="space-y-2">
+              <Label htmlFor="position">Position</Label>
+              <Select
+                value={position}
+                onValueChange={(value: 'Dispatcher' | 'Shift Supervisor' | 'Management') => 
+                  setPosition(value)
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select position" />
+                </SelectTrigger>
+                <SelectContent>
+                  {role === 'employee' ? (
+                    <>
+                      <SelectItem value="Dispatcher">Dispatcher</SelectItem>
+                      <SelectItem value="Shift Supervisor">Shift Supervisor</SelectItem>
+                    </>
+                  ) : (
+                    <SelectItem value="Management">Management</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          {/* Dialog action buttons */}
-          <DialogFooter>
+
+          {/* Form actions */}
+          <div className="flex justify-end gap-4">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
+              disabled={isLoading}
             >
               Cancel
             </Button>
             <Button type="submit" disabled={isLoading}>
-              {isLoading
-                ? employee
-                  ? "Updating..."
-                  : "Creating..."
-                : employee
-                ? "Update"
-                : "Create"}
-              Employee
+              {isLoading ? "Saving..." : employee ? "Update" : "Add"} Employee
             </Button>
-          </DialogFooter>
+          </div>
         </form>
       </DialogContent>
     </Dialog>

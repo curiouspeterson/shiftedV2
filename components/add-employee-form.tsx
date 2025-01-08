@@ -7,6 +7,7 @@
  * Features:
  * - Email and full name input
  * - Role selection (employee/manager)
+ * - Position selection (Dispatcher, Shift Supervisor, Management)
  * - Weekly hour limit setting
  * - Automatic password generation
  * - Email verification flow
@@ -20,7 +21,6 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { createBrowserClient } from "@supabase/ssr"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -32,12 +32,14 @@ import { toast } from "@/components/ui/use-toast"
  * @property email - Employee's email address
  * @property fullName - Employee's full name
  * @property role - Employee's role (employee/manager)
+ * @property position - Employee's position (Dispatcher, Shift Supervisor, Management)
  * @property weeklyHourLimit - Maximum weekly working hours
  */
 interface AddEmployeeFormData {
   email: string
   fullName: string
   role: 'employee' | 'manager'
+  position: 'Dispatcher' | 'Shift Supervisor' | 'Management'
   weeklyHourLimit: number
 }
 
@@ -53,6 +55,7 @@ export function AddEmployeeForm() {
     email: '',
     fullName: '',
     role: 'employee',
+    position: 'Dispatcher',
     weeklyHourLimit: 40
   })
 
@@ -67,48 +70,26 @@ export function AddEmployeeForm() {
     setIsLoading(true)
 
     try {
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
-
-      // Generate a secure random password
-      const password = Math.random().toString(36).slice(-8) + 'Aa1!'
-
-      // Create the user in Auth
-      const { data: authData, error: signUpError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+      // Send data to our API endpoint
+      const response = await fetch('/api/employees', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           data: {
-            full_name: formData.fullName,
+            email: formData.email,
+            name: formData.fullName,
             role: formData.role,
+            position: formData.position,
             weekly_hour_limit: formData.weeklyHourLimit
           }
-        }
+        }),
       })
 
-      if (signUpError) throw signUpError
-
-      if (!authData.user) {
-        throw new Error('Failed to create user')
-      }
-
-      // Wait for trigger to create the profile
-      await new Promise(resolve => setTimeout(resolve, 2000))
-
-      // Verify profile creation
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', authData.user.id)
-        .single()
-
-      if (profileError || !profile) {
-        // Clean up auth user if profile creation failed
-        await supabase.auth.admin.deleteUser(authData.user.id)
-        throw new Error('Failed to create user profile')
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to create employee')
       }
 
       // Show success message
@@ -177,7 +158,14 @@ export function AddEmployeeForm() {
         <Label htmlFor="role">Role</Label>
         <Select
           value={formData.role}
-          onValueChange={(value: 'employee' | 'manager') => setFormData(prev => ({ ...prev, role: value }))}
+          onValueChange={(value: 'employee' | 'manager') => {
+            setFormData(prev => ({
+              ...prev,
+              role: value,
+              // Update position based on role
+              position: value === 'manager' ? 'Management' : 'Dispatcher'
+            }))
+          }}
         >
           <SelectTrigger>
             <SelectValue placeholder="Select role" />
@@ -185,6 +173,31 @@ export function AddEmployeeForm() {
           <SelectContent>
             <SelectItem value="employee">Employee</SelectItem>
             <SelectItem value="manager">Manager</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Position selection field */}
+      <div className="space-y-2">
+        <Label htmlFor="position">Position</Label>
+        <Select
+          value={formData.position}
+          onValueChange={(value: 'Dispatcher' | 'Shift Supervisor' | 'Management') => 
+            setFormData(prev => ({ ...prev, position: value }))
+          }
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select position" />
+          </SelectTrigger>
+          <SelectContent>
+            {formData.role === 'employee' ? (
+              <>
+                <SelectItem value="Dispatcher">Dispatcher</SelectItem>
+                <SelectItem value="Shift Supervisor">Shift Supervisor</SelectItem>
+              </>
+            ) : (
+              <SelectItem value="Management">Management</SelectItem>
+            )}
           </SelectContent>
         </Select>
       </div>

@@ -15,6 +15,7 @@ export interface Database {
           full_name: string
           email: string
           role: 'employee' | 'manager'
+          position: 'Dispatcher' | 'Shift Supervisor' | 'Management'
           weekly_hour_limit: number
           created_at: string
           updated_at: string
@@ -25,6 +26,7 @@ export interface Database {
           full_name: string
           email: string
           role?: 'employee' | 'manager'
+          position?: 'Dispatcher' | 'Shift Supervisor' | 'Management'
           weekly_hour_limit?: number
           created_at?: string
           updated_at?: string
@@ -35,6 +37,7 @@ export interface Database {
           full_name?: string
           email?: string
           role?: 'employee' | 'manager'
+          position?: 'Dispatcher' | 'Shift Supervisor' | 'Management'
           weekly_hour_limit?: number
           created_at?: string
           updated_at?: string
@@ -49,7 +52,7 @@ export interface Database {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      position_type: 'Dispatcher' | 'Shift Supervisor' | 'Management'
     }
   }
 } 

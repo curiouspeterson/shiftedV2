@@ -72,6 +72,29 @@ jobs:
           echo "Found migration files:"
           ls -la supabase/migrations
 
+      - name: Prepare Migrations
+        run: |
+          echo "Preparing migrations for compatibility..."
+          for file in supabase/migrations/*.sql; do
+            echo "Processing $file..."
+            # Create a backup
+            cp "$file" "${file}.bak"
+            
+            # Remove PROCEDURES related statements
+            sed -i '/GRANT.*ON.*PROCEDURES/d' "$file"
+            sed -i '/ALTER DEFAULT PRIVILEGES.*PROCEDURES/d' "$file"
+            
+            # Add alternative grants for older PostgreSQL versions
+            if grep -q "PROCEDURES" "${file}.bak"; then
+              echo "-- Alternative grants for older PostgreSQL versions" >> "$file"
+              echo "GRANT ALL ON ALL FUNCTIONS IN SCHEMA auth TO service_role;" >> "$file"
+              echo "ALTER DEFAULT PRIVILEGES IN SCHEMA auth GRANT ALL ON FUNCTIONS TO service_role;" >> "$file"
+            fi
+            
+            # Remove backup
+            rm "${file}.bak"
+          done
+
       - name: Link and Push Database Changes
         run: |
           echo "Linking Supabase project..."
@@ -80,19 +103,17 @@ jobs:
             exit 1
           }
           
-          echo "Pushing database changes..."
-          supabase db push --dry-run || {
-            echo "Dry run failed, checking for compatibility issues..."
-            # Remove PROCEDURES grants from migrations
-            find supabase/migrations -type f -name "*.sql" -exec sed -i 's/GRANT ALL ON ALL PROCEDURES.*;//g' {} \;
-            find supabase/migrations -type f -name "*.sql" -exec sed -i 's/ALTER DEFAULT PRIVILEGES.*PROCEDURES.*;//g' {} \;
-            
-            echo "Retrying database push..."
-            supabase db push || {
+          echo "Running dry-run first..."
+          if supabase db push --dry-run; then
+            echo "Dry run successful, proceeding with actual push..."
+            echo "y" | supabase db push || {
               echo "Failed to push database changes"
               exit 1
             }
-          }
+          else
+            echo "Dry run failed, aborting"
+            exit 1
+          fi
         timeout-minutes: 5
 
       - name: Build
